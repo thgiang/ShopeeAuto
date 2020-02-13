@@ -1,5 +1,4 @@
 ﻿using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +6,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Dynamic;
+using SeleniumExtras.WaitHelpers;
+
 namespace ShopeeAuto
 {
     class ShopeeWorker
@@ -52,7 +53,7 @@ namespace ShopeeAuto
                     // Check lại xem có lỗi gì khi đăng nhập ko, nếu có thì hiển thị, nếu ko thì login thành công
                     try
                     {
-                        if(Global.wait.Until(ExpectedConditions.ElementIsVisible(By.ClassName("login-error"))).Text != "")
+                        if(Global.wait.Until(ExpectedConditions.ElementIsVisible(By.ClassName(" route-index"))).Text != "")
                         {
                             string loginError = loginForm.FindElement(By.ClassName("login-error")).Text;
                             Global.AddLog("Đăng nhập lỗi: " + loginError);
