@@ -16,7 +16,6 @@ namespace ShopeeAuto
         public string apiUrl;
         public string accessToken;
 
-        [Obsolete]
         public ApiBuilder()
         {
             apiUrl = ConfigurationSettings.AppSettings["api_url"];

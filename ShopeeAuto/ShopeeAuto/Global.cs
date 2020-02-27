@@ -35,7 +35,7 @@ namespace ShopeeAuto
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
             chromeDriverService.HideCommandPromptWindow = true;
             ChromeOptions options = new ChromeOptions();
-            options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data/");
+            options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
             options.AddArguments("profile-directory=Profile 1");
             options.AddArguments("start-maximized");
             driver = new ChromeDriver(chromeDriverService, options);
