@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Dynamic;
 using SeleniumExtras.WaitHelpers;
+using RestSharp;
+using Newtonsoft.Json;
 
 namespace ShopeeAuto
 {
@@ -68,12 +70,43 @@ namespace ShopeeAuto
                 // Lỗi khi gọi lên server lấy username, pass
                 else
                 {
-                    Global.AddLog("Lỗi lấy username, pass từ server. Nôi: " + results.message);
+                    Global.AddLog("Lỗi lấy username, pass từ server: " + results.message);
                     return false;
                 }
             }
 
             return true;
+        }
+
+        public dynamic GetProductData(string itemId, string shopId)
+        {
+            var client = new RestClient("https://shopee.vn/api/v2/item/get?itemid=" + itemId + "&shopid=" + shopId);
+            client.Timeout = -1;
+            var request = new RestRequest(Method.GET);
+            IRestResponse response = client.Execute(request);
+            dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content).item;
+            if(results == null)
+            {
+                return null;
+            }
+            /*
+            Global.AddLog("Lấy data sản phẩm thành công \n\n");
+            Global.AddLog("Mã ngành hàng: " + results.categories[2].catid + "\n");
+            Global.AddLog("Tên sản phẩm: " + results.name + "\n");
+            Global.AddLog("Mô tả sản phẩm: " + results.description + "\n");
+            Global.AddLog("Giá bán hiện tại: " + results.price + "\n");
+            Global.AddLog("Tổng số đã bán: " + results.historical_sold + "\n");
+            Global.AddLog("Thuộc tính sản phẩm: " + results.attributes + "\n");
+            Global.AddLog("Phân loại sản phẩm: " + results.models + "\n");
+            */
+            //Global.AddLog(results + "\n";
+            return results;
+        }
+
+
+        public string PublishProduct(dynamic ProductDataFromShopee, dynamic ProductDataFromTaobao)
+        {
+           return "";
         }
     }
 }

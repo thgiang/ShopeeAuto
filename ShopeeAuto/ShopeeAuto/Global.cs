@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,6 +14,7 @@ namespace ShopeeAuto
 {
     public static class Global
     {
+       
         // Debug text area
         public static RichTextBox txtDebug;
 
@@ -25,12 +27,6 @@ namespace ShopeeAuto
 
         public static void InitDriver()
         {
-            // Kill all chrome process
-            foreach (var process in Process.GetProcessesByName("chrome"))
-            {
-                process.Kill();
-            }
-
             //  StartDriver
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
             chromeDriverService.HideCommandPromptWindow = true;

@@ -14,9 +14,23 @@ namespace ShopeeAuto
         [STAThread]
         static void Main()
         {
+            // Init web driver
+            Global.InitDriver();
+
+            // Close event
+            AppDomain.CurrentDomain.ProcessExit += new EventHandler(OnProcessExit);
+
+            // Open Main Form
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Main());
+           
+        }
+
+        static void OnProcessExit(object sender, EventArgs e)
+        {
+            Global.driver.Close();
+            Global.driver.Quit();
         }
     }
 }
