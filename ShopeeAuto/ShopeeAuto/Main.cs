@@ -15,6 +15,7 @@ using NLog;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
+using RestSharp;
 
 namespace ShopeeAuto
 {
@@ -50,7 +51,7 @@ namespace ShopeeAuto
                     Dictionary<string, string> parameters = new Dictionary<string, string>();
                     parameters.Add("route", "product");
                     parameters.Add("action", "list");
-                    parameters.Add("limit", "1");
+                    parameters.Add("limit", "2");
 
                     dynamic requestResults = new ExpandoObject();
                     requestResults = Global.api.Request(parameters);
@@ -66,7 +67,7 @@ namespace ShopeeAuto
                     }
                     doneAllJob = false;
                 }
-                Thread.Sleep(10000);
+                Thread.Sleep(1000000);
             }
         }
 
@@ -114,8 +115,7 @@ namespace ShopeeAuto
                         // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
                         if (job.jobData.tactic != 0)
                         {
-
-                            // Lấy thông tin cái đã ^^
+                            // Lấy thông tin từ shopee cái đã
                             dynamic cloneMe = Shopee.GetProductData((string)job.jobData.shopee_ids[0].item_id, (string)job.jobData.shopee_ids[0].shop_id);
                             if (cloneMe == null)
                             {
@@ -123,22 +123,36 @@ namespace ShopeeAuto
                                 // TODO: BÁO LÊN SERVER, LỖI KHÔNG LẤY ĐƯỢC THÔNG TIN SẢN PHẨM
                             };
 
+                            // Copy thông tin của đối thủ shopee
                             postMe.catid = cloneMe.categories[2].catid;
                             postMe.name = cloneMe.name;
-                            postMe.price = "50000";
+                            // Lần đầu list thì cứ cho giá rẻ hơn đối thủ 1k, còn từ sau đó tính toán sau.
+                            postMe.price = cloneMe.price - 1000;
 
-                            dynamic maxProfitItem;
+                            // Lấy ra taobao có profit tốt nhất
+                            dynamic maxProfitItem = new ExpandoObject();
                             float maxProfitPercent = 0;
                             foreach(dynamic taobao_item in job.jobData.taobao_ids)
                             {
-                                Global.AddLog("Dang quet qua taobao ID: " + taobao_item.item_id );
                                 if(taobao_item.profit.percent > maxProfitPercent)
                                 {
                                     maxProfitPercent = taobao_item.profit.percent;
                                     maxProfitItem = taobao_item;
                                 }
                             }
-                            Global.AddLog("Tim ra ngon nhat, ti le la " + maxProfitPercent);
+
+                            // Kiểm tra số lượng bên TQ còn đang bán và copy ảnh của nó.
+                            //Lấy ảnh của sản phẩm từ Taobao
+                            var client = new RestClient("https://laonet.online/index.php?route=api_tester/call&api_name=item_get&lang=vi&num_iid=" + maxProfitItem.item_id.ToString() + "&key=profile.nvt@gmail.com");
+                            client.Timeout = -1;
+                            var request = new RestRequest(Method.GET);
+                            IRestResponse response = client.Execute(request);
+                            dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
+                            dynamic ProductDataFromTaobao = results.item;
+
+
+
+                            Shopee.PublishOnlyOneProduct(cloneMe, ProductDataFromTaobao);
                             // Map thông tin từ cloneMe sang postMe
                             /*
                             Global.AddLog("Lấy data sản phẩm thành công \n\n");

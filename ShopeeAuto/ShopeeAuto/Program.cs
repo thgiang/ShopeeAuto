@@ -15,7 +15,7 @@ namespace ShopeeAuto
         static void Main()
         {
             // Init web driver
-            Global.InitDriver();
+            Global.Init();
 
             // Close event
             AppDomain.CurrentDomain.ProcessExit += new EventHandler(OnProcessExit);
