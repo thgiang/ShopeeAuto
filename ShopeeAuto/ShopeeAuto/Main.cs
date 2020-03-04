@@ -116,20 +116,6 @@ namespace ShopeeAuto
                         // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
                         if (job.jobData.tactic != 0)
                         {
-                            // Lấy thông tin từ shopee cái đã
-                            dynamic cloneMe = Shopee.GetProductData((string)job.jobData.shopee_ids[0].item_id, (string)job.jobData.shopee_ids[0].shop_id);
-                            if (cloneMe == null)
-                            {
-                                job.jobStatus = "error";
-                                // TODO: BÁO LÊN SERVER, LỖI KHÔNG LẤY ĐƯỢC THÔNG TIN SẢN PHẨM
-                            };
-
-                            // Copy thông tin của đối thủ shopee
-                            postMe.catId = cloneMe.categories[2].catId;
-                            postMe.name = cloneMe.name;
-                            // Lần đầu list thì cứ cho giá rẻ hơn đối thủ 1k, còn từ sau đó tính toán sau.
-                            postMe.price = cloneMe.price - 1000;
-
                             // Lấy ra taobao có profit tốt nhất
                             dynamic maxProfitItem = new ExpandoObject();
                             float maxProfitPercent = 0;
@@ -141,24 +127,15 @@ namespace ShopeeAuto
                                     maxProfitItem = taobao_item;
                                 }
                             }
-
-                            // Kiểm tra số lượng bên TQ còn đang bán và copy ảnh của nó.
-                            //Lấy ảnh của sản phẩm từ Taobao
-                            var client = new RestClient("https://laonet.online/index.php?route=api_tester/call&api_name=item_get&lang=vi&num_iid=" + maxProfitItem.item_id.ToString() + "&key=profile.nvt@gmail.com");
-                            ; client.Timeout = -1;
-                            var request = new RestRequest(Method.GET);
-                            IRestResponse response = client.Execute(request);
-                            dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                            dynamic taobaoProductInfo = results.item;
-
-                            Shopee.PublishOnlyOneProduct(cloneMe, taobaoProductInfo);
-
-
+                            
+                            // Copy từ taobao sang shopee
+                            Global.AddLog("Bắt đầu up shopee " + job.jobData._id);
+                            Shopee.CopyTaobaoToShopee(job.jobData.shopee_ids[0].item_id.ToString(), job.jobData.shopee_ids[0].shop_id.ToString(), maxProfitItem.item_id.ToString());
                         }
                         // Ngược lại thì copy thông tin từ Taobao rồi dịch
                         else
                         {
-
+                            // Gọi hàm Shopee.CopyTaobaoToShopee2 trong hàm này phải dịch content tiếng TQ trước khi post thay vì copy toàn bộ thông tin của đối thủ shopee như hàm trước.
                         }
 
 

@@ -84,16 +84,15 @@ namespace ShopeeAuto
             {
                 if (int.TryParse(split, out n))
                 {
-                    result += " " + split;
-
+                    result += split + " ";
                 }
                 else if (myDictionary.ContainsKey(split))
                 {
-                    result += " " + myDictionary[split];
+                    result += myDictionary[split] + " ";
                 }
 
             }
-            return result;
+            return result.Trim();
         }
 
 
