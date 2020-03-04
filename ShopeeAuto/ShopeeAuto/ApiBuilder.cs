@@ -15,11 +15,13 @@ namespace ShopeeAuto
     {
         public string apiUrl;
         public string accessToken;
+        public string laoNetApi;
 
         public ApiBuilder()
         {
             apiUrl = ConfigurationSettings.AppSettings["api_url"];
             accessToken = ConfigurationSettings.AppSettings["access_token"];
+            laoNetApi = ConfigurationSettings.AppSettings["laonet_api"];
         }
 
         public dynamic Request(IDictionary<string, string> parameters)

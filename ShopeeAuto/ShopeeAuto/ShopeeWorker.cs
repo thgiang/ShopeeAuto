@@ -16,7 +16,8 @@ namespace ShopeeAuto
 {
     class ShopeeWorker
     {
-        private static dynamic cookiesShopeeToFake;
+        private Helper helper = new Helper();
+        private dynamic shopeeCookie;
 
         public bool Login()
         {
@@ -34,7 +35,8 @@ namespace ShopeeAuto
             } catch
             {
                 Global.AddLog("Đã đăng nhập");
-                GetCookieShopeeToFake();
+                // Lấy cookie trước khi return Login thành công
+                shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
                 return true;
             }
 
@@ -71,7 +73,8 @@ namespace ShopeeAuto
                         Global.AddLog("Đăng nhập thành công");
 
                     }
-                    GetCookieShopeeToFake();
+                    // Lấy cookie trước khi return Login thành công
+                    shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
                     return true;
                 }
                 // Lỗi khi gọi lên server lấy username, pass
@@ -81,9 +84,21 @@ namespace ShopeeAuto
                     return false;
                 }
             }
-
+            // Lấy cookie trước khi return Login thành công
+            shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
             return true;
         }
+
+        // Gọi hàm này trước khi request
+        public void FakeshopeeCookie(RestRequest request)
+        {
+            foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
+            {
+                request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
+                request.AddCookie("SPC_CDS", "GICUNGDUOC");
+            }
+        }
+
 
         public dynamic GetProductData(string itemId, string shopId)
         {
@@ -98,7 +113,7 @@ namespace ShopeeAuto
             }
             /*
             Global.AddLog("Lấy data sản phẩm thành công \n\n");
-            Global.AddLog("Mã ngành hàng: " + results.categories[2].catid + "\n");
+            Global.AddLog("Mã ngành hàng: " + results.categories[2].catId + "\n");
             Global.AddLog("Tên sản phẩm: " + results.name + "\n");
             Global.AddLog("Mô tả sản phẩm: " + results.description + "\n");
             Global.AddLog("Giá bán hiện tại: " + results.price + "\n");
@@ -110,44 +125,24 @@ namespace ShopeeAuto
             return results;
         }
 
-
-
-
-
-        public static void GetCookieShopeeToFake()
-        {
-            Thread.Sleep(6000);
-            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v1/unpublishedProducts/?limit=500&offset=0&subtype=add_attribute&type=unpublished");
-            cookiesShopeeToFake = Global.driver.Manage().Cookies.AllCookies;
-            Global.AddLog("Get cookie Shopee thành công");
-        }
-
-        public static void ClickSaveAllButton()
+        public void ClickSaveAllButton()
         {
             Global.wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector(".shopee-button.shopee-button--inactive.shopee-button--primary.shopee-button--medium.shopee-button--aa.ember-view"))).Click();
         }
 
-        public static void FakeCookieShopee(RestRequest request)
-        {
-            foreach (OpenQA.Selenium.Cookie cookie in cookiesShopeeToFake)
-            {
-                request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
-                request.AddCookie("SPC_CDS", "GICUNGDUOC");
-            }
-        }
 
-        public static string GetAttributeModelID(string CatID)
+        public string GetattributeModeId(string catId)
         {
-            var client = new RestClient("https://banhang.shopee.vn/api/v2/categories/attributes/?catids=[" + CatID + "]");
-            client.Timeout = -1;
+            var client = new RestClient("https://banhang.shopee.vn/api/v2/categories/attributes/?catIds=[" + catId + "]");
+            //client.Timeout = -1;
             var request = new RestRequest(Method.GET);
-            FakeCookieShopee(request);
+            FakeshopeeCookie(request);
             IRestResponse response = client.Execute(request);
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
             return results.categories[0].meta.modelid;
         }
 
-        public static void AddLogistics()
+        public void AddLogistics()
         {
             try
             {
@@ -160,11 +155,10 @@ namespace ShopeeAuto
                 ClickSaveAllButton();
             }
 
-            Thread.Sleep(3000);
             PublishProducts();
         }
 
-        public static void PublishProducts()
+        public void PublishProducts()
         {
             try
             {
@@ -176,17 +170,15 @@ namespace ShopeeAuto
                 Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/oldunpublished?subtype=ready_publish");
                 ClickSaveAllButton();
             }
-
-            Thread.Sleep(3000);
         }
 
-        public static string PostImageToShopee(string path)
+        public string PostImageToShopee(string path)
         {
             // Đoạn này là request bằng cookie nick Shopee của em
             var client = new RestClient("https://banhang.shopee.vn/api/v3/general/upload_image/?SPC_CDS=8c777714-50b7-4017-82bd-3a5141424b85&SPC_CDS_VER=2");
-            client.Timeout = -1;
+            //client.Timeout = -1;
             var request = new RestRequest(Method.POST);
-            FakeCookieShopee(request);
+            FakeshopeeCookie(request);
 
             request.AddFile("file", File.ReadAllBytes(path), Path.GetFileName(path));
             IRestResponse response = client.Execute(request);
@@ -196,57 +188,38 @@ namespace ShopeeAuto
         }
 
 
-        public static string DownloadImage(string PictureUrl)
+       
+        // Copy ảnh từ Taobao sang Shopee, trả về List<string> md5 của ảnh đã đăng lên shopee
+        public string[] TaobaoProductImagesToShopee(string taobaoId)
         {
-            string Path_In_PC = @"C:\Users\Admin\Desktop\image_to_search.jpg";
-            if (PictureUrl.Contains("http") == false)
-            {
-                PictureUrl = "https:" + PictureUrl;
-            }
-            MemoryStream ms = new MemoryStream();
-            using (WebClient webClient = new WebClient())
-            {
-                webClient.DownloadFile(PictureUrl, Path_In_PC);
-                return Path_In_PC;
-            }
-        }
-
-        public static string CopyImagesProductFromTaobaoToShopee(string ID_Product_Taobao)
-        {
-            var client = new RestClient("https://laonet.online/index.php?route=api_tester/call&api_name=item_get&lang=vi&num_iid=" + ID_Product_Taobao + "&key=profile.nvt@gmail.com");
-            client.Timeout = -1;
+            
+            var client = new RestClient(Global.api.laoNetApi + "&api_name=item_get&lang=vi&num_iid=" + taobaoId);
+            //client.Timeout = -1;
             var request = new RestRequest(Method.GET);
             IRestResponse response = client.Execute(request);
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
             dynamic item_imgs = results.item.item_imgs;
 
-            //string[] ImagesListInShopee = new string[999];
-            string ImagesListInShopee = "[";
-            int i = 0;
-            foreach (dynamic Image in item_imgs)
+            List<string> shopeeImages = new List<string>();
+            // Lấy tối đa 7 ảnh của Taobao đăng sang shopee
+            for (int i = 0; i < Math.Min(7, item_imgs.Count); i++)
             {
-                if (i >= 7)
-                {
-                    break;
-                }
-                ImagesListInShopee += "\"" + PostImageToShopee(DownloadImage(Image.url.ToString())) + "\",";
-                i++;
-                //ImagesListInShopee[i] = ShopeeController.PostImageToShopee(MainController.DownloadImage(Image.url.ToString()));
+                shopeeImages.Add(PostImageToShopee(helper.DownloadImage(item_imgs[i].url.ToString())));
             }
-            ImagesListInShopee = ImagesListInShopee.TrimEnd(',') + "]";
-            return ImagesListInShopee;
+            return shopeeImages.ToArray();
         }
 
-        public static dynamic GetProductSKUs(string TaobaoProductID)
+        // Lấy SKU của sản phẩm taobao
+        public dynamic GetTaobaoProductSKUs(string taobaoId)
         {
             Global.AddLog("Bắt đầu lấy danh sách SKU của sản phẩm");
 
-            var client = new RestClient(Global.TaobaoURLAPI + "&api_name=item_get&num_iid=" + TaobaoProductID);
-            client.Timeout = -1;
+            var client = new RestClient(Global.api.laoNetApi + "&api_name=item_get&num_iid=" + taobaoId);
+            // client.Timeout = -1;
             var request = new RestRequest(Method.GET);
             IRestResponse response = client.Execute(request);
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content).item;
-            dynamic ListSKUs = results.skus.sku;
+            dynamic listSKUs = results.skus.sku;
 
             dynamic tier_variation = new ExpandoObject();
             dynamic model_list = new List<dynamic>() { };
@@ -256,7 +229,7 @@ namespace ShopeeAuto
             int index = 0;
 
 
-            foreach (dynamic SKUData in ListSKUs)
+            foreach (dynamic SKUData in listSKUs)
             {
                 string[] SKUProps = SKUData.properties.ToString().Split(new string[] { ";" }, StringSplitOptions.None);
                 string SKUPropName = "";
@@ -295,69 +268,51 @@ namespace ShopeeAuto
             }
             tier_variation.images = new List<string>() { };
 
-            dynamic ResponseData = new ExpandoObject();
-            ResponseData.tier_variation = JsonConvert.SerializeObject(tier_variation, Formatting.Indented);
-            ResponseData.model_list = JsonConvert.SerializeObject(model_list, Formatting.Indented);
-
-            //Global.AddLog("\n\n tier_variation \n\n" + JsonConvert.SerializeObject(tier_variation, Formatting.Indented) + "\n\n");
-            //Global.AddLog("\n\n model_list \n\n" + JsonConvert.SerializeObject(model_list, Formatting.Indented) + "\n\n");
-            Global.AddLog("Lấy thành công danh sách SKU");
-            Global.AddEndProcessLog();
-            return ResponseData;
+            dynamic responseData = new ExpandoObject();
+            responseData.tier_variation = JsonConvert.SerializeObject(tier_variation, Formatting.Indented);
+            responseData.model_list = JsonConvert.SerializeObject(model_list, Formatting.Indented);
+            Global.AddLog("Lấy SKU xong!");
+            return responseData;
         }
 
 
-        public string PublishOnlyOneProduct(dynamic ProductDataFromShopee, dynamic ProductDataFromTaobao)
+        public string PublishOnlyOneProduct(dynamic shopeeProductInfo, dynamic taobaoProductInfo)
         {
-            string ProductName, ProductIDInTaobao, ProductImages, ProductModelList, ProductTiervariation, CategoryPath, Description, AttributeModelID, AttributesData, Stock, Price, Weight, Width, Height, Length, DaysToShip, ProductLogisticData;
+            Random random = new Random();
+            string taobaoId = taobaoProductInfo.num_iid;
 
-            ProductName = Global.FirstLetterToUpper(ProductDataFromShopee.name.ToString());
-            ProductIDInTaobao = ProductDataFromTaobao.num_iid;
-
-            Global.AddLog("Bắt đầu upload sản phẩm " + ProductIDInTaobao + " từ Taobao lên Shopee");
+            Global.AddLog("Bắt đầu upload sản phẩm " + taobaoId + " từ Taobao lên Shopee");
             Global.AddLog("Chuẩn bị dữ liệu để up");
 
-            ProductImages = CopyImagesProductFromTaobaoToShopee(ProductIDInTaobao);
-            CategoryPath = "[" + ProductDataFromShopee.categories[0].catid + "," + ProductDataFromShopee.categories[1].catid + "," + ProductDataFromShopee.categories[2].catid + "]";
-            AttributeModelID = GetAttributeModelID(ProductDataFromShopee.categories[2].catid.ToString());
+            // Data mẫu
+            string postDataString = "{\"id\":0,\"name\":\"productName\",\"brand\":\"No Brand\",\"description\":\"Description\",\"model_list\":\"\",\"category_path\":\"\",\"attribute_model\":{\"attribute_model_id\":\"\",\"attributes\":[]},\"category_recommend\":[],\"stock\": 30,\"price\":300000,\"price_before_discount\":\"\",\"parent_sku\":\"\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":600,\"dimension\":{\"width\":6,\"height\":7,\"length\":9},\"pre_order\":true,\"days_to_ship\":7,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[]}";
+            dynamic postData = JsonConvert.DeserializeObject<ExpandoObject>(postDataString);
+            string[] images = TaobaoProductImagesToShopee(taobaoId);
 
-            dynamic SKUProductData = GetProductSKUs(ProductIDInTaobao);
-            ProductModelList = SKUProductData.model_list.ToString();
-            ProductTiervariation = SKUProductData.tier_variation.ToString();
+            // Đẩy data thật vào
+            postData.name                               = Global.FirstLetterToUpper(shopeeProductInfo.name.ToString());
+            postData.images                             = images;
+            postData.description                        = shopeeProductInfo.description.ToString().Replace("\n", @"\n");
+            postData.category_path                      = "[" + shopeeProductInfo.categories[0].catId + "," + shopeeProductInfo.categories[1].catId + "," + shopeeProductInfo.categories[2].catId + "]";
+            postData.attribute_model.attribute_model_id = GetattributeModeId(shopeeProductInfo.categories[2].catid.ToString());
+            postData.attribute_model.attributes         = "";
+            postData.model_list                         = GetTaobaoProductSKUs(taobaoId).model_list.ToString();
+            postData.price                              = shopeeProductInfo.price - random.Next(1, 5) * 1000;
 
-            Description = ProductDataFromShopee.description.ToString().Replace("\n", @"\n");
-            AttributesData = "";
-            Weight = "600";
-            Stock = "9999";
-            Price = ((float)ProductDataFromTaobao.price * 3400).ToString();
-            Width = "6";
-            Height = "7";
-            Length = "9";
-            DaysToShip = "7";
-            ProductLogisticData = "{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[]}";
 
             var client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/?version=3.1.0&SPC_CDS=GICUNGDUOC&SPC_CDS_VER=2");
-            client.Timeout = -1;
+            //client.Timeout = -1;
             var request = new RestRequest(Method.POST);
             request.AddHeader("content-type", "application/json;charset=UTF-8");
-            FakeCookieShopee(request);
+            FakeshopeeCookie(request);
 
-            Global.AddLog("Bắt đầu up");
-
-            //Global.AddLog("attribute_model_id: \n" + AttributeModelID + "\n\n";
-            //Global.AddLog("attributes: \n" + ProductDataFromShopee.attributes + "\n\n";
-            //Global.AddLog("images: \n" + ProductImages + "\n\n";
-            //Global.AddLog("name: \n" + ProductName + "\n\n";
-            //Global.AddLog("category_path: \n" + CategoryPath + "\n\n";
-            //Global.AddLog("description: \n" + Description + "\n\n";
-
-            string DataPost = "[{\"id\":0,\"name\":\"" + ProductName + "\",\"brand\":\"No Brand\",\"images\":" + ProductImages + ",\"description\":\"" + @Description + "\",\"model_list\":" + ProductModelList + ",\"category_path\":" + CategoryPath + ",\"attribute_model\":{\"attribute_model_id\":" + AttributeModelID + ",\"attributes\":[" + AttributesData + "]},\"category_recommend\":[],\"stock\":" + Stock + ",\"price\":\"" + Price + "\",\"price_before_discount\":\"\",\"parent_sku\":\"\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"" + Weight + "\",\"dimension\":{\"width\":" + Width + ",\"height\":" + Height + ",\"length\":" + Length + "},\"pre_order\":true,\"days_to_ship\":" + DaysToShip + ",\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[" + ProductTiervariation + "],\"logistics_channels\":[" + ProductLogisticData + "]";
-
-            request.AddParameter("application/json;charset=UTF-8", DataPost, ParameterType.RequestBody);
+            Global.AddLog("Bắt đầu up sản phẩm");
+            postDataString = JsonConvert.SerializeObject(postData);
+            request.AddParameter("application/json;charset=UTF-8", postDataString, ParameterType.RequestBody);
             IRestResponse response = client.Execute(request);
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
 
-            Global.AddLog("Datapost: \n\n" + DataPost + "\n\n");
+            //Global.AddLog("postDataString: \n\n" + postDataString + "\n\n");
             Global.AddLog("\n\n results: \n\n" + results + "\n\n");
             try
             {
@@ -365,14 +320,14 @@ namespace ShopeeAuto
                 {
                     dynamic SuccessProductID = results.data.result[0].data.product_id;
                     Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
-                    Global.AddEndProcessLog();
+                    Global.AddLog("===============================");
                     //driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
                     return SuccessProductID;
                 }
                 else
                 {
                     Global.AddLog("Upload thất bại, nội dung trả về là:" + results.data.result[0].message.ToString());
-                    Global.AddEndProcessLog();
+                    Global.AddLog("===============================");
                     return "error";
                 }
             }

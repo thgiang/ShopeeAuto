@@ -51,7 +51,7 @@ namespace ShopeeAuto
                     Dictionary<string, string> parameters = new Dictionary<string, string>();
                     parameters.Add("route", "product");
                     parameters.Add("action", "list");
-                    parameters.Add("limit", "2");
+                    parameters.Add("limit", "1");
 
                     dynamic requestResults = new ExpandoObject();
                     requestResults = Global.api.Request(parameters);
@@ -82,6 +82,7 @@ namespace ShopeeAuto
                 isLoggedIn = Shopee.Login();
                 if (!isLoggedIn)
                 {
+                    Global.AddLog("Đăng nhập thất bại lần thứ " + i.ToString());
                     // TODO: Gọi lên server báo lỗi đăng nhập
                     Thread.Sleep(30000);
                     continue;
@@ -124,7 +125,7 @@ namespace ShopeeAuto
                             };
 
                             // Copy thông tin của đối thủ shopee
-                            postMe.catid = cloneMe.categories[2].catid;
+                            postMe.catId = cloneMe.categories[2].catId;
                             postMe.name = cloneMe.name;
                             // Lần đầu list thì cứ cho giá rẻ hơn đối thủ 1k, còn từ sau đó tính toán sau.
                             postMe.price = cloneMe.price - 1000;
@@ -144,26 +145,14 @@ namespace ShopeeAuto
                             // Kiểm tra số lượng bên TQ còn đang bán và copy ảnh của nó.
                             //Lấy ảnh của sản phẩm từ Taobao
                             var client = new RestClient("https://laonet.online/index.php?route=api_tester/call&api_name=item_get&lang=vi&num_iid=" + maxProfitItem.item_id.ToString() + "&key=profile.nvt@gmail.com");
-                            client.Timeout = -1;
+                            ; client.Timeout = -1;
                             var request = new RestRequest(Method.GET);
                             IRestResponse response = client.Execute(request);
                             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                            dynamic ProductDataFromTaobao = results.item;
+                            dynamic taobaoProductInfo = results.item;
 
+                            Shopee.PublishOnlyOneProduct(cloneMe, taobaoProductInfo);
 
-
-                            Shopee.PublishOnlyOneProduct(cloneMe, ProductDataFromTaobao);
-                            // Map thông tin từ cloneMe sang postMe
-                            /*
-                            Global.AddLog("Lấy data sản phẩm thành công \n\n");
-                            Global.AddLog("Mã ngành hàng: " + results.categories[2].catid + "\n");
-                            Global.AddLog("Tên sản phẩm: " + results.name + "\n");
-                            Global.AddLog("Mô tả sản phẩm: " + results.description + "\n");
-                            Global.AddLog("Giá bán hiện tại: " + results.price + "\n");
-                            Global.AddLog("Tổng số đã bán: " + results.historical_sold + "\n");
-                            Global.AddLog("Thuộc tính sản phẩm: " + results.attributes + "\n");
-                            Global.AddLog("Phân loại sản phẩm: " + results.models + "\n");
-                            */
 
                         }
                         // Ngược lại thì copy thông tin từ Taobao rồi dịch
@@ -209,11 +198,6 @@ namespace ShopeeAuto
             // Thread này thực hiện các công việc đang có và báo ngược về Server kết quả
             Thread threadListing = new Thread(SWorker);
             threadListing.Start();
-        }
-
-        private void timerApi_Tick(object sender, EventArgs e)
-        {
-            SApi();
         }
 
         private void Main_FormClosed(object sender, FormClosedEventArgs e)

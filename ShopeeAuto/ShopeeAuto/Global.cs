@@ -16,8 +16,6 @@ namespace ShopeeAuto
     {
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
-        public static string TaobaoURLAPI = "https://laonet.online/index.php?route=api_tester/call&lang=en&key=profile.nvt@gmail.com";
-
         // Debug text area
         public static RichTextBox txtDebug;
 
@@ -102,12 +100,6 @@ namespace ShopeeAuto
         public static void AddLog(string text)
         {
             txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text += "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n"; });
-            return;
-        }
-
-        public static void AddEndProcessLog()
-        {
-            txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text += "======================= \n"; });
             return;
         }
     }
