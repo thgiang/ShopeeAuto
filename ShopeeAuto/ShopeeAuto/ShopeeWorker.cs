@@ -18,9 +18,38 @@ namespace ShopeeAuto
     {
         private Helper helper = new Helper();
         private dynamic shopeeCookie;
+        private int minRevenue = 30;
+        private int maxRevenue = 70;
+        private string username;
+        private string password;
 
         public bool Login()
         {
+            Dictionary<string, string> parameters = new Dictionary<string, string>();
+            dynamic results = new ExpandoObject();
+            // Lấy thông tin username và pass từ server
+            parameters["route"] = "client/info";
+            results = Global.api.Request(parameters);
+
+            // Lấy được user và pass, tiến hành login vào shopee
+            if (results.status == "success")
+            {
+                minRevenue = int.Parse(results.data.shopee_min_revenue.ToString());
+                maxRevenue = int.Parse(results.data.shopee_max_revenue.ToString());
+                username = results.data.shopee_username.ToString();
+                password = results.data.shopee_password.ToString();
+
+            }
+            // Lỗi khi gọi lên server lấy username, pass
+            else
+            {
+                Global.AddLog("Lỗi lấy username, pass từ server: " + results.message);
+                return false;
+            }
+
+           
+
+
             bool needToLogin = false;
             Global.AddLog("Kiểm tra Shopee đã đăng nhập chưa");
             Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/account/signin");
@@ -43,46 +72,29 @@ namespace ShopeeAuto
             // Nếu có form login thì lấy thông tin username và pass từ server
             if(needToLogin)
             {
-                Dictionary<string, string> parameters = new Dictionary<string, string>();
-                dynamic results = new ExpandoObject();
+                IWebElement loginForm = Global.driver.FindElement(By.CssSelector("form.signin-form"));
+                loginForm.FindElements(By.TagName("input"))[0].SendKeys(username); // Username
+                loginForm.FindElements(By.TagName("input"))[1].SendKeys(password); // Password
+                loginForm.FindElement(By.ClassName("shopee-checkbox__indicator")).Click(); // Remember me
+                loginForm.FindElement(By.ClassName("shopee-button--primary")).Click(); // Login now
 
-                // Lấy thông tin username và pass từ server
-                parameters["route"] = "client/info";               
-                results = Global.api.Request(parameters);
-
-                // Lấy được user và pass, tiến hành login vào shopee
-                if(results.status == "success")
+                // Check lại xem có lỗi gì khi đăng nhập ko, nếu có thì hiển thị, nếu ko thì login thành công
+                try
                 {
-                    IWebElement loginForm = Global.driver.FindElement(By.CssSelector("form.signin-form"));
-                    loginForm.FindElements(By.TagName("input"))[0].SendKeys(results.data.shopee_username.ToString()); // Username
-                    loginForm.FindElements(By.TagName("input"))[1].SendKeys(results.data.shopee_password.ToString()); // Password
-                    loginForm.FindElement(By.ClassName("shopee-checkbox__indicator")).Click(); // Remember me
-                    loginForm.FindElement(By.ClassName("shopee-button--primary")).Click(); // Login now
-
-                    // Check lại xem có lỗi gì khi đăng nhập ko, nếu có thì hiển thị, nếu ko thì login thành công
-                    try
+                    if(Global.wait.Until(ExpectedConditions.ElementIsVisible(By.ClassName(" route-index"))).Text != "")
                     {
-                        if(Global.wait.Until(ExpectedConditions.ElementIsVisible(By.ClassName(" route-index"))).Text != "")
-                        {
-                            string loginError = loginForm.FindElement(By.ClassName("login-error")).Text;
-                            Global.AddLog("Đăng nhập lỗi: " + loginError);
-                            return false;
-                        }
-                    } catch
-                    {
-                        Global.AddLog("Đăng nhập thành công");
-
+                        string loginError = loginForm.FindElement(By.ClassName("login-error")).Text;
+                        Global.AddLog("Đăng nhập lỗi: " + loginError);
+                        return false;
                     }
-                    // Lấy cookie trước khi return Login thành công
-                    shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
-                    return true;
-                }
-                // Lỗi khi gọi lên server lấy username, pass
-                else
+                } catch
                 {
-                    Global.AddLog("Lỗi lấy username, pass từ server: " + results.message);
-                    return false;
+                    Global.AddLog("Đăng nhập thành công");
+
                 }
+                // Lấy cookie trước khi return Login thành công
+                shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+                return true;
             }
             // Lấy cookie trước khi return Login thành công
             shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
@@ -156,22 +168,42 @@ namespace ShopeeAuto
 
 
        
-        // Copy ảnh từ Taobao sang Shopee, trả về List<string> md5 của ảnh đã đăng lên shopee
-        public List<string> UploadTaobaoImagesToShopee(dynamic taobaoProductInfo)
+        // Copy ảnh từ Taobao sang Shopee, trả về một object gồm 2 phần tử: mảng generalImgs và Dictionary SKUIImages
+        public dynamic UploadTaobaoImagesToShopee(dynamic taobaoProductInfo)
         {
-            dynamic item_imgs = taobaoProductInfo.item_imgs;
+            dynamic returnValue = new ExpandoObject();
+            List<string> uploadedImages = new List<string>();
+            Dictionary<string, string> SKUImages = new Dictionary<string, string>();
+            List<string> generalImgs = new List<string>();
 
-            List<string> shopeeImages = new List<string>();
-            // Lấy tối đa 7 ảnh của Taobao đăng sang shopee
-            for (int i = 0; i < Math.Min(7, item_imgs.Count); i++)
+            dynamic item_imgs = taobaoProductInfo.item_imgs;
+            dynamic prop_imgs = taobaoProductInfo.prop_imgs.prop_img;
+
+            string uploadedImage;
+            foreach (dynamic prop_img in prop_imgs)
             {
-                shopeeImages.Add(PostImageToShopee(helper.DownloadImage(item_imgs[i].url.ToString())));
+                uploadedImage = PostImageToShopee(helper.DownloadImage(prop_img.url.ToString()));
+                uploadedImages.Add(prop_img.url.ToString());
+                SKUImages[prop_img.properties.ToString()] = uploadedImage;
             }
-            return shopeeImages;
+
+            foreach (dynamic item_img in item_imgs)
+            {
+                if(!uploadedImages.Contains(item_img.url.ToString())) {
+                    uploadedImage = PostImageToShopee(helper.DownloadImage(item_img.url.ToString()));
+                    uploadedImages.Add(uploadedImage);
+                    generalImgs.Add(uploadedImage);
+                }
+            }
+
+            returnValue.generalImgs = generalImgs;
+            returnValue.SKUImages = SKUImages;
+            return returnValue;
+
         }
 
         // Lấy SKU của sản phẩm taobao, đưa nó về đúng form mà shopee yêu cầu
-        public dynamic BuildShopeeSKUBasedOnTaobao(dynamic taobaoProductInfo, string price)
+        public dynamic BuildShopeeSKUBasedOnTaobao(dynamic taobaoProductInfo, int revenuePercent, int weight)
         {
             Global.AddLog("Bắt đầu lấy danh sách SKU của sản phẩm");          
             dynamic listSKUs = taobaoProductInfo.skus.sku;
@@ -198,8 +230,15 @@ namespace ShopeeAuto
                     // Đăng tối đa 79 sản phẩm vì mình thích thế, hihi
                     CurrenSKUData.stock = Math.Min(int.Parse(SKUData.quantity.ToString()), 79);
                     // Dòng này là tính giá theo taobao, tạm ẩn vì đang dùng giá truyền vào, giá chung cho tất cả các model
-                    //CurrenSKUData.price = (Convert.ToDouble(SKUData.price) * 1000).ToString();
-                    CurrenSKUData.price = price;
+                  
+
+
+
+            // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
+                    var client = new RestClient(Global.api.apiUrl + "shipping-fee-ns?amount=" + SKUData.price.ToString() + "&weight=" + weight.ToString());
+                    var request = new RestRequest(Method.GET);
+                    IRestResponse response = client.Execute(request);
+                    CurrenSKUData.price = JsonConvert.DeserializeObject<dynamic>(response.Content).final_price.ToString();
                     CurrenSKUData.sku = SKUData.sku_id.ToString();
                     CurrenSKUData.tier_index = new List<int>() { index };
 
@@ -217,6 +256,7 @@ namespace ShopeeAuto
                         }
                     }
                     SKUPropName = Global.SimpleTranslate(SKUPropName);
+
                     // Nếu bị trùng với một SKUName nào trước đó thì thêm chữ kiểu x
                     if (SKUNames.Contains(SKUPropName))
                     {
@@ -226,7 +266,9 @@ namespace ShopeeAuto
                             alt++;
                         } while (SKUNames.Contains(SKUPropName));
                     }
-                    // Thêm SKU vào danh sách
+                    SKUNames.Add(SKUPropName);
+
+                    // Thêm SKU vào danh sách variation shopee
                     tier_variation.options.Add(SKUPropName.ToString());
 
                     Global.AddLog(SKUPropName + " => " + Global.SimpleTranslate(SKUPropName));
@@ -245,7 +287,27 @@ namespace ShopeeAuto
             return responseData;
         }
 
+        // Sinh ra một description đáng yêu ♥
+        public string BeautifulDescription(dynamic postData, dynamic shopeeProductInfo, dynamic taobaoProductInfo)
+        {
+            string desciption = postData.name.ToString().ToUpper()+ @"\n
+------------------------------------------------------\n
+☆ THÔNG TIN SẢN PHẨM\n
+"+ shopeeProductInfo.description + @"\n\n
 
+☆ CAM KẾT VÀ DỊCH VỤ\n
+- Sản phẩm đảm bảo chất lượng, chính xác 100 % về thông số, mô tả và hình ảnh.\n
+- Sản phẩm được nhập khẩu trực tiếp từ Trung Quốc.\n
+- Thời gian giao hàng dự kiến: trong vòng 14 ngày làm việc kể từ ngày đặt hàng. Thông tin tracking được gửi tới Quý khách qua tin nhắn Shopee hàng ngày.\n
+- Hình thức thanh toán: COD toàn quốc.\n
+- Khách hàng đặt mua số lượng lớn vui lòng liên hệ trực tiếp để được giảm giá tới 20%.\n
+\n
+☆ THÔNG TIN LIÊN HỆ\n
+☎ Mobile: 0969.546.294\n
+📞 Zalo: 0969.546.294";
+
+            return desciption;
+        }
         public string CopyTaobaoToShopee(string shopeeId, string shopeeCategoryId, string taobaoId)
         {
             Random random = new Random();
@@ -267,11 +329,56 @@ namespace ShopeeAuto
             // Data mẫu
             string postDataString = "{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[],\"description\":\"Không được để trống\",\"model_list\":[],\"category_path\":[],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":7,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}";
             dynamic postData = JsonConvert.DeserializeObject<ExpandoObject>(postDataString);
-            List<string> images = UploadTaobaoImagesToShopee(taobaoProductInfo);
+            dynamic allImages = UploadTaobaoImagesToShopee(taobaoProductInfo);
 
             // Tính toán data thật
-            string price = (shopeeProductInfo.price_max / 100000 - random.Next(1, 5) * 1000).ToString();
-            dynamic sku = BuildShopeeSKUBasedOnTaobao(taobaoProductInfo, price);
+            // Lấy kích thước, cân nặng của sản phẩm
+            //
+            var client = new RestClient("https://shopee.vn/api/v0/shop/"+shopeeCategoryId+"/item/"+shopeeId+"/shipping_info_to_address/?city=Huy");
+            var request = new RestRequest(Method.GET);
+            IRestResponse response = client.Execute(request);
+            dynamic shopeeShippings = JsonConvert.DeserializeObject<dynamic>(response.Content);
+            if (shopeeShippings == null)
+            {
+                Global.AddLog("Lỗi khi lấy thông tin kích thước sản phẩm");
+                return "error";
+            }
+
+
+
+            // Tính giá TB các SKU Shopee
+            int shopeePrice = shopeeProductInfo.price_max / 100000;
+            if (shopeeProductInfo.models.Count() > 0) {
+                shopeePrice = 0;
+                foreach(dynamic m in shopeeProductInfo.models)
+                {
+                    shopeePrice += int.Parse(m.price) / 100000;
+                }
+                shopeePrice = shopeePrice / shopeeProductInfo.models.Count();
+            }
+            // Tính giá TB các SKU Taobao
+            int taobaoPrice = int.Parse(taobaoProductInfo.price);
+            if (taobaoProductInfo.skus.sku.Count() > 0)
+            {
+                taobaoPrice = 0;
+                foreach (dynamic s in taobaoProductInfo.skus.sku)
+                {
+                    taobaoPrice += int.Parse(s.price);
+                }
+                taobaoPrice = taobaoPrice / taobaoProductInfo.skus.sku.Count();
+            }
+            // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
+            int weight = (shopeeShippings.shipping_infos[0].debug.total_weight * 1000);
+            client = new RestClient(Global.api.apiUrl+ "shipping-fee-ns?amount="+ taobaoPrice.ToString()+ "&weight="+ weight.ToString());
+            request = new RestRequest(Method.GET);
+            response = client.Execute(request);
+            taobaoPrice = JsonConvert.DeserializeObject<dynamic>(response.Content).final_price;
+
+            // Giá bán ra
+            int outPrice = Math.Max(taobaoPrice * (100 + minRevenue) / 100, (shopeePrice  - random.Next(1, 5) * 1000));
+
+            int revenuePercent = outPrice / shopeePrice * 100;
+            dynamic sku = BuildShopeeSKUBasedOnTaobao(taobaoProductInfo, revenuePercent, weight);
             List<int> categoryPath = new List<int>();
             for (int i = 0; i < 3; i++)
             {
@@ -280,22 +387,26 @@ namespace ShopeeAuto
 
             // Đẩy data thật vào object
             postData.name                               = Global.FirstLetterToUpper(shopeeProductInfo.name.ToString());
-            postData.images                             = images;
-            postData.description                        = shopeeProductInfo.description.ToString().Replace("\n", @"\n");
+            postData.images                             = allImages.generalImgs;
             postData.category_path                      = categoryPath;
             postData.attribute_model.attribute_model_id = GetAttributeModelId(shopeeProductInfo.categories[2].catid.ToString());
             postData.attribute_model.attributes         = new List<string>();
-            postData.price                              = price;
+            postData.price                              = outPrice;
             postData.tier_variation                     = sku.tier_variation;
             postData.model_list                         = sku.model_list;
             //postData.ds_cat_rcmd_id                   = random.Next(11111111, 91111111).ToString() + random.Next(11111111, 91111111).ToString(); // Chưa biết cái này là cái gì
             postData.parent_sku                         = random.Next(1111111, 9111111).ToString(); // Chưa biết cái này là cái gì
+            postData.weight                             = weight;
+            postData.dimension.with                     = shopeeShippings.shipping_infos[0].debug.sizes_data[0].width;
+            postData.dimension.height                   = shopeeShippings.shipping_infos[0].debug.sizes_data[0].height;
+            postData.dimension.length                   = shopeeShippings.shipping_infos[0].debug.sizes_data[0].length;
+            postData.description                        = BeautifulDescription(postData, shopeeProductInfo, taobaoProductInfo);
 
             // POST lên shopee
             Global.AddLog("Bắt đầu up sản phẩm");
-            var client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/?version=3.1.0&SPC_CDS=GICUNGDUOC&SPC_CDS_VER=2");
+            client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/?version=3.1.0&SPC_CDS=GICUNGDUOC&SPC_CDS_VER=2");
             //client.Timeout = -1;
-            var request = new RestRequest(Method.POST);
+            request = new RestRequest(Method.POST);
             request.AddHeader("content-type", "application/json;charset=UTF-8");
             FakeshopeeCookie(request);
 
@@ -304,7 +415,7 @@ namespace ShopeeAuto
             postDataString = JsonConvert.SerializeObject(postDataFinal);
             //Global.AddLog(postDataString);
             request.AddParameter("application/json;charset=UTF-8", postDataString, ParameterType.RequestBody);
-            IRestResponse response = client.Execute(request);
+            response = client.Execute(request);
             // In kết quả trả về
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
             Global.AddLog("\n\n results: \n\n" + results + "\n\n");

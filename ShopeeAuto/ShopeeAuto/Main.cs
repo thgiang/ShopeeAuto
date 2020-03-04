@@ -58,7 +58,7 @@ namespace ShopeeAuto
 
                     foreach (dynamic element in requestResults)
                     {
-                        Global.AddLog("Da add cong viec " + element._id);
+                        Global.AddLog("Đang thực hiện job " + element._id);
                         QueueElement job = new QueueElement();
                         job.jobName = "listing";
                         job.jobStatus = "waiting";

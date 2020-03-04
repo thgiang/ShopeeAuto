@@ -32,6 +32,7 @@ namespace ShopeeAuto
             myDictionary.Add("colour", "Màu");
             myDictionary.Add("size", "Size");
             myDictionary.Add("black", "Đen");
+            myDictionary.Add("gray", "Xám");
             myDictionary.Add("yellow", "Vàng");
             myDictionary.Add("red", "Đỏ");
             myDictionary.Add("white", "Trắng");
