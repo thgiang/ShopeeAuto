@@ -51,7 +51,7 @@ namespace ShopeeAuto
                     Dictionary<string, string> parameters = new Dictionary<string, string>();
                     parameters.Add("route", "product");
                     parameters.Add("action", "list");
-                    parameters.Add("limit", "1");
+                    parameters.Add("limit", "2");
 
                     dynamic requestResults = new ExpandoObject();
                     requestResults = Global.api.Request(parameters);
