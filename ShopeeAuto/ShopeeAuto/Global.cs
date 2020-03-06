@@ -4,6 +4,7 @@ using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -100,6 +101,7 @@ namespace ShopeeAuto
         public static void AddLog(string text)
         {
             txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text += "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n"; });
+            File.AppendAllText("log.txt", "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n");
             return;
         }
     }

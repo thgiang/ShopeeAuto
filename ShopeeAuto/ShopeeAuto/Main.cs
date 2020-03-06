@@ -53,12 +53,17 @@ namespace ShopeeAuto
                     parameters.Add("action", "list");
                     parameters.Add("limit", "2");
 
-                    dynamic requestResults = new ExpandoObject();
-                    requestResults = Global.api.Request(parameters);
-
+                    ApiResult apiResult = new ApiResult();
+                    apiResult = Global.api.RequestMyApi(parameters);
+                    if(!apiResult.success)
+                    {
+                        Global.AddLog("ERROR: Lỗi lấy job từ server");
+                        Thread.Sleep(5000);
+                    }
+                    dynamic requestResults = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
                     foreach (dynamic element in requestResults)
                     {
-                        Global.AddLog("Đang thực hiện job " + element._id);
+                        Global.AddLog("Đã thêm vào hàng đợi job: " + element._id);
                         QueueElement job = new QueueElement();
                         job.jobName = "listing";
                         job.jobStatus = "waiting";
@@ -129,7 +134,6 @@ namespace ShopeeAuto
                             }
                             
                             // Copy từ taobao sang shopee
-                            Global.AddLog("Bắt đầu up shopee " + job.jobData._id);
                             Shopee.CopyTaobaoToShopee(job.jobData.shopee_ids[0].item_id.ToString(), job.jobData.shopee_ids[0].shop_id.ToString(), maxProfitItem.item_id.ToString());
                         }
                         // Ngược lại thì copy thông tin từ Taobao rồi dịch
