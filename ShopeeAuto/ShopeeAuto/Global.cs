@@ -81,10 +81,9 @@ namespace ShopeeAuto
 
             List<string> splits = Data.Split(' ').ToList<string>();
             string result = "";
-            int n;
             foreach (string split in splits)
             {
-                if (int.TryParse(split, out n))
+                if (int.TryParse(split, out int n))
                 {
                     result += split + " ";
                 }

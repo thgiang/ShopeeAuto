@@ -27,18 +27,19 @@ namespace ShopeeAuto
         {
             ApiResult result;
             // Lấy thông tin username và pass từ server
-            Dictionary<string, string> parameters = new Dictionary<string, string>();
-            parameters["route"] = "client/info";
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                ["route"] = "client/info"
+            };
             result = Global.api.RequestMyApi(parameters);
             // Lấy được user và pass, tiến hành login vào shopee
             if (result.success)
             {
-                dynamic responseData = JsonConvert.DeserializeObject<dynamic>(result.content);
-                minRevenue = int.Parse(responseData.data.shopee_min_revenue.ToString());
-                maxRevenue = int.Parse(responseData.data.shopee_max_revenue.ToString());
-                username = responseData.data.shopee_username.ToString();
-                password = responseData.data.shopee_password.ToString();
-
+                NSClientInfo.ClientInfo client = JsonConvert.DeserializeObject<NSClientInfo.ClientInfo>(result.content);
+                minRevenue = int.Parse(client.Data.ShopeeMinRevenue.ToString());
+                maxRevenue = int.Parse(client.Data.ShopeeMaxRevenue.ToString());
+                username = client.Data.ShopeeUsername.ToString();
+                password = client.Data.ShopeeUsername.ToString();
             }
             // Lỗi khi gọi lên server lấy username, pass
             else
@@ -112,35 +113,44 @@ namespace ShopeeAuto
         }
 
         // Lấy thông tin sản phẩm Shopee
-        public dynamic GetShopeeProductData(string itemId, string shopId)
+        public NSShopeeProduct.ShopeeProduct GetShopeeProductData(string itemId, string shopId)
         {
             ApiResult apiResult;
             apiResult = Global.api.RequestOthers("https://shopee.vn/api/v2/item/get?itemid=" + itemId + "&shopid=" + shopId, Method.GET);
             if(!apiResult.success)
             {
+                Global.AddLog("ERROR: Lỗi kết nối api GetShopeeProductData");
                 return null;
             }
 
-            dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content).item;
-            if(results == null)
+            NSShopeeProduct.ShopeeProduct results = JsonConvert.DeserializeObject<NSShopeeProduct.ShopeeProduct>(apiResult.content);
+            if(results == null || results.Error != null)
             {
+                Global.AddLog("ERROR: Lỗi đọc thông tin ShopeeProduct");
                 return null;
             }
             return results;
         }
 
         // Lấy thông tin sản phẩm taobao
-        public dynamic GetTaobaoProductData(string taobaoId)
+        public NSTaobaoProduct.TaobaoProduct GetTaobaoProductData(string taobaoId)
         {
             ApiResult apiResult;
             apiResult = Global.api.RequestOthers(Global.api.laoNetApi + "&api_name=item_get&num_iid=" + taobaoId, Method.GET);
             if (!apiResult.success)
             {
+                Global.AddLog("ERROR: Lỗi kết nối api GetTaobaoProductData");
                 return null;
             }
 
-            dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-            return results.item;
+            NSTaobaoProduct.TaobaoProduct results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+            if(results.Data.Item == null)
+            {
+                Global.AddLog("ERROR: Lỗi kết đọc thông tin TaobaoProductData");
+                return null;
+            }
+            
+            return results;
         }
 
         // Mỗi category có 1 model (form nhập thông tin) khác nhau. Cần lấy model_id sau đó lấy form để biết đc nó yêu cầu nhập những thông tin gì
@@ -162,8 +172,10 @@ namespace ShopeeAuto
         public string PostImageToShopee(string path)
         {
             ApiResult apiResult;
-            Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>();
-            parameters["file"] = path;
+            Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>
+            {
+                ["file"] = path
+            };
 
             apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/general/upload_image/?SPC_CDS=8c777714-50b7-4017-82bd-3a5141424b85&SPC_CDS_VER=2", Method.POST, shopeeCookie, parameters);
             if (!apiResult.success)
@@ -261,10 +273,12 @@ namespace ShopeeAuto
                     //float SKUPrice = SKUData.price * revenuePercent; // Dòng này sai, phải gọi lên API tính giá vc (giá gốc) xong rồi mới nhân tỉ lệ để ra giá rao trên shopee
                     float SKUPrice = SKUData.price;
 
-                    Dictionary<string, string> parameters = new Dictionary<string, string>();
-                    parameters["route"] = "shipping-fee-ns";
-                    parameters["amount"] = SKUPrice.ToString();
-                    parameters["weight"] = weight.ToString();
+                    Dictionary<string, string> parameters = new Dictionary<string, string>
+                    {
+                        ["route"] = "shipping-fee-ns",
+                        ["amount"] = SKUPrice.ToString(),
+                        ["weight"] = weight.ToString()
+                    };
                     // Gọi đến chết bao giờ tính đc giá thì thôi, cái này ko thể ko dừng đc
                     bool calcSuccess = false;
                     do
@@ -389,14 +403,13 @@ namespace ShopeeAuto
 
             return desciption;
         }
+
         public string CopyTaobaoToShopee(string shopeeId, string shopeeCategoryId, string taobaoId)
         {
             ApiResult apiResult;
             Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
             Random random = new Random();
             Global.AddLog("Bắt đầu upload sản phẩm " + taobaoId + " từ Taobao lên Shopee");
-            Global.AddLog("Chuẩn bị dữ liệu để up");
-
             // Lấy data từ Shopee
             Global.AddLog("Lấy data từ Shopee");
             dynamic shopeeProductInfo = GetShopeeProductData(shopeeId, shopeeCategoryId);
@@ -432,7 +445,7 @@ namespace ShopeeAuto
                     Global.AddLog(s.price.ToString());
                     taobaoPrice += float.Parse(s.price.ToString());                    
                 }
-                taobaoPrice = taobaoPrice / taobaoProductInfo.skus.sku.Count;
+                taobaoPrice /= taobaoProductInfo.skus.sku.Count;
             }
 
             // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
@@ -456,10 +469,12 @@ namespace ShopeeAuto
 
             // Tính giá TQ bao gồm cả ship về VN
             Global.AddLog("Gọi lên API để tính giá TQ sau vận chuyển");
-            Dictionary<string, string> parameters = new Dictionary<string, string>();
-            parameters["route"] = "shipping-fee-ns";
-            parameters["amount"] = taobaoPrice.ToString();
-            parameters["weight"] = weight.ToString();
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                ["route"] = "shipping-fee-ns",
+                ["amount"] = taobaoPrice.ToString(),
+                ["weight"] = weight.ToString()
+            };
 
             apiResult = Global.api.RequestMyApi(parameters);
             if (apiResult.success)
@@ -486,7 +501,7 @@ namespace ShopeeAuto
                     p = m.price.ToString();
                     shopeePrice += int.Parse(p.Substring(0, p.Length - 5));
                 }
-                shopeePrice = shopeePrice / shopeeProductInfo.models.Count;
+                shopeePrice /= shopeeProductInfo.models.Count;
             }
             Global.AddLog("Giá shopee cuối cùng là "+ shopeePrice.ToString());
             if (shopeePrice == 0)
@@ -542,8 +557,10 @@ namespace ShopeeAuto
             request.AddHeader("content-type", "application/json;charset=UTF-8");
             FakeshopeeCookie(request);
 
-            List<ExpandoObject> postDataFinal = new List<ExpandoObject>();
-            postDataFinal.Add(postData);
+            List<ExpandoObject> postDataFinal = new List<ExpandoObject>
+            {
+                postData
+            };
             postDataString = JsonConvert.SerializeObject(postDataFinal);
             //Global.AddLog(postDataString);
             request.AddParameter("application/json;charset=UTF-8", postDataString, ParameterType.RequestBody);

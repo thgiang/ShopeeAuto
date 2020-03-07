@@ -29,13 +29,13 @@ namespace ShopeeAuto
 
         public ApiBuilder()
         {
-            apiUrl = ConfigurationSettings.AppSettings["api_url"];
-            accessToken = ConfigurationSettings.AppSettings["access_token"];
-            laoNetApi = ConfigurationSettings.AppSettings["laonet_api"];
+            apiUrl = System.Configuration.ConfigurationManager.AppSettings["api_url"];
+            accessToken = System.Configuration.ConfigurationManager.AppSettings["access_token"];
+            laoNetApi = System.Configuration.ConfigurationManager.AppSettings["laonet_api"];
         }
 
  
-        public ApiResult RequestMyApi(IDictionary<string, string> parameters)
+        public ApiResult RequestMyApi(IDictionary<string, string> parameters, Method method = Method.GET)
         {
             ApiResult result = new ApiResult();
 
@@ -48,7 +48,7 @@ namespace ShopeeAuto
             // Init request
             string url = apiUrl + parameters["route"];
             var client = new RestClient(url);
-            var request = new RestRequest(Method.GET);
+            var request = new RestRequest(method);
             request.AddHeader("content-type", "application/json; charset=UTF-8");
 
             // Add parameters to request
@@ -92,7 +92,7 @@ namespace ShopeeAuto
             // Return result
             return result;
         }
-
+       
         public ApiResult RequestOthers(string url, RestSharp.Method method, dynamic cookies = null, Dictionary<string, dynamic> parameters = null)
         {
             ApiResult result = new ApiResult();

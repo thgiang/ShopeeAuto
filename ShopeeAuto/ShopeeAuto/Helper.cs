@@ -17,7 +17,6 @@ namespace ShopeeAuto
             {
                 PictureUrl = "https:" + PictureUrl;
             }
-            MemoryStream ms = new MemoryStream();
             using (WebClient webClient = new WebClient())
             {
                 webClient.DownloadFile(PictureUrl, randomPath);

@@ -48,12 +48,14 @@ namespace ShopeeAuto
                 {
                     Jobs.Clear(); /// Xoa sach job cu
 
-                    Dictionary<string, string> parameters = new Dictionary<string, string>();
-                    parameters.Add("route", "product");
-                    parameters.Add("action", "list");
-                    parameters.Add("limit", "2");
+                    Dictionary<string, string> parameters = new Dictionary<string, string>
+                    {
+                        { "route", "product" },
+                        { "action", "list" },
+                        { "limit", "2" }
+                    };
 
-                    ApiResult apiResult = new ApiResult();
+                    ApiResult apiResult;
                     apiResult = Global.api.RequestMyApi(parameters);
                     if(!apiResult.success)
                     {
@@ -64,10 +66,12 @@ namespace ShopeeAuto
                     foreach (dynamic element in requestResults)
                     {
                         Global.AddLog("Đã thêm vào hàng đợi job: " + element._id);
-                        QueueElement job = new QueueElement();
-                        job.jobName = "listing";
-                        job.jobStatus = "waiting";
-                        job.jobData = element;
+                        QueueElement job = new QueueElement
+                        {
+                            jobName = "listing",
+                            jobStatus = "waiting",
+                            jobData = element
+                        };
                         Jobs.Add(job);
                     }
                     doneAllJob = false;
@@ -116,7 +120,6 @@ namespace ShopeeAuto
                     if(job.jobStatus == "waiting")
                     {
                         Global.AddLog("Đang up sản phẩm " + job.jobData._id);
-                        dynamic postMe = new ExpandoObject(); // Thông tin sẽ đăng lên Shopee
 
                         // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
                         if (job.jobData.tactic != 0)
@@ -165,6 +168,14 @@ namespace ShopeeAuto
             {
                 MessageBox.Show("Please put " + System.AppDomain.CurrentDomain.FriendlyName + ".config in same folder");
                 Application.Exit();
+            }
+
+
+            ApiResult apiResult;
+            apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22609581114673%22%7D", Method.GET);
+            if(apiResult.success)
+            {
+                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
             }
 
             // Khởi tạo ShopeeWorker
