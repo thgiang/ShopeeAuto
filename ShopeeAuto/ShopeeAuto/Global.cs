@@ -17,6 +17,7 @@ namespace ShopeeAuto
     {
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
+        public static string myShopId = "";
         // Debug text area
         public static RichTextBox txtDebug;
 
@@ -33,14 +34,16 @@ namespace ShopeeAuto
             myDictionary.Add("colour", "Màu");
             myDictionary.Add("size", "Size");
             myDictionary.Add("黑色", "Đen");
-            myDictionary.Add("gray", "Xám");
-            myDictionary.Add("yellow", "Vàng");
+            myDictionary.Add("浅粉色", "Hồng nhạt");
+            myDictionary.Add("深粉色", "Hồng đậm");
+            myDictionary.Add("黄色", "Vàng");
             myDictionary.Add("红色", "Đỏ");
             myDictionary.Add("藏蓝", "Xanh tím than");
-            myDictionary.Add("white", "Trắng");
-            myDictionary.Add("blue", "Xanh da trời");
+            myDictionary.Add("宝蓝", "Xanh nước biển");
+            myDictionary.Add("白色", "Trắng");
             myDictionary.Add("斤", " x 0.5kg");
 
+            myDictionary.Add("xs", "XS");
             myDictionary.Add("s", "S");
             myDictionary.Add("l", "L");
             myDictionary.Add("m", "M");

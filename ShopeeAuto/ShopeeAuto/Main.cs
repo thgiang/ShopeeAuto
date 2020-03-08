@@ -46,13 +46,14 @@ namespace ShopeeAuto
             {
                 if (doneAllJob)
                 {
+                    Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
                     Jobs.Clear(); /// Xoa sach job cu
 
                     Dictionary<string, string> parameters = new Dictionary<string, string>
                     {
                         { "route", "product" },
                         { "action", "list" },
-                        { "limit", "2" }
+                        { "limit", "5" }
                     };
 
                     ApiResult apiResult;
@@ -77,7 +78,7 @@ namespace ShopeeAuto
                     }
                     doneAllJob = false;
                 }
-                Thread.Sleep(1000000);
+                Thread.Sleep(2000);
             }
         }
 
@@ -99,6 +100,13 @@ namespace ShopeeAuto
                 }
                 else
                 {
+                    if(Shopee.GetShopId() == "")
+                    {
+                        Global.AddLog("ERROR: Không lấy đc giá trị shopId");
+                        // TODO: Gọi lên server báo lỗi đăng nhập
+                        Thread.Sleep(30000);
+                        continue;
+                    }
                     break;
                 }
             }
@@ -115,7 +123,7 @@ namespace ShopeeAuto
             while (true)
             {
                 // BẮT ĐẦU CÔNG VIỆC CHÍNH
-                foreach (QueueElement job in Jobs)
+                foreach (QueueElement job in Jobs.ToList())
                 {
                     // Xử lý product chờ được list
                     if(job.jobStatus == "waiting")
@@ -137,11 +145,13 @@ namespace ShopeeAuto
                                 Global.AddLog("Quét qua taobaoId " + taobaoIdObj.ItemId);
                                 ApiResult apiResult;
                                 apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22" + taobaoIdObj.ItemId.ToString() + "%22%7D", Method.GET);
-                                Thread.Sleep(1000); // Request nhanh quá bị taobao chặn
+                                Thread.Sleep(600); // Request nhanh quá bị taobao chặn
                                 if (apiResult.success)
                                 {
                                     NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
                                     // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
+
+                                    // TODO: Xử lý trường hợp ApiStack null
                                     tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
                                     // Tìm đc thằng rẻ hơn
 
@@ -178,7 +188,8 @@ namespace ShopeeAuto
                                 {
                                     { "route", "product/"+jobData.Id },
                                     { "source", "taobao" },
-                                    { "item_id",  taobaoProductInfo.Data.Item.ItemId}
+                                    { "item_id",  taobaoProductInfo.Data.Item.ItemId},
+                                    { "action", "update_best_id" }
                                 };
                                 ApiResult apiResult = Global.api.RequestMyApi(parameters, Method.PUT);
                                 if (apiResult.success)
@@ -231,16 +242,29 @@ namespace ShopeeAuto
                             NSShopeeProduct.ShopeeProduct shopeeProductInfo = Shopee.GetShopeeProductData(jobData.ShopeeIds.First().ItemId, jobData.ShopeeIds.First().ShopId);
                             if (shopeeProductInfo == null)
                             {
+                                Dictionary<string, string> parameters = new Dictionary<string, string>
+                                {
+                                    { "route", "product/"+jobData.Id },
+                                    { "source", "taobao" },
+                                    { "shopee_item_id",  "CANNOT_READ_INFO"},
+                                    { "shopee_shop_id",  Global.myShopId},
+                                    { "shopee_price",  "0"},
+                                    { "shopee_model_list",  ""},
+                                    { "action", "list_done" }
+                                };
+                                Global.api.RequestMyApi(parameters, Method.PUT);
+
                                 Global.AddLog("ERROR: Lỗi lấy thông tin sản phẩm shopeeId " + jobData.ShopeeIds.First().ItemId + ", shopId " + jobData.ShopeeIds.First().ShopId);
                                 continue;
                             };
                             Global.AddLog("Lấy data từ Shopee xong");
                             #endregion
 
-                            if(taobaoProductInfo != null)
+                            if (taobaoProductInfo != null)
                             {
-                                Shopee.CopyTaobaoToShopee(taobaoProductInfo, shopeeProductInfo);
-                            } else
+                                Shopee.CopyTaobaoToShopee(taobaoProductInfo, shopeeProductInfo, jobData);
+                            }
+                            else
                             {
                                 Global.AddLog("ERROR: Thật ra theo logic code của mình thì dòng này sẽ ko bao giờ đc gọi tới, bởi vì đi tới đây thì taobaoProductInfo đã khác null rồi");
                                 continue;

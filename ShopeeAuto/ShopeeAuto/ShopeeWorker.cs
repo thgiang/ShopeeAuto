@@ -54,6 +54,7 @@ namespace ShopeeAuto
 
             bool needToLogin = false;
             Global.AddLog("Kiểm tra Shopee đã đăng nhập chưa");
+            
             Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/account/signin");
 
 
@@ -70,7 +71,24 @@ namespace ShopeeAuto
                 shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
                 return true;
             }
-
+            
+            /*
+            // Gọi lên địa chỉ check thông tin của người đang login
+            ApiResult apiResult;
+            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v2/login/", Method.GET, shopeeCookie);
+            if (apiResult.success)
+            {
+                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                if (results.shopid == null)
+                {
+                    needToLogin = true;
+                }
+                else
+                {
+                    Global.myShopId = results.shopid;
+                }
+            }
+            */
             // Nếu có form login thì lấy thông tin username và pass từ server
             if(needToLogin)
             {
@@ -94,13 +112,28 @@ namespace ShopeeAuto
                     Global.AddLog("Đăng nhập thành công");
 
                 }
-                // Lấy cookie trước khi return Login thành công
-                shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
-                return true;
             }
             // Lấy cookie trước khi return Login thành công
             shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
             return true;
+        }
+
+        public string GetShopId()
+        {
+            // Kiểm tra lại lần nữa xem login thành công chưa và nhân thể set luôn Global.myShopId nếu bên trên chưa có
+            if (Global.myShopId == "")
+            {
+                ApiResult apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v2/login/", Method.GET, shopeeCookie);
+                if (apiResult.success)
+                {
+                    dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                    if (results.shopid != null)
+                    { 
+                        Global.myShopId = results.shopid;
+                    }
+                }
+            }
+            return Global.myShopId;
         }
 
         // Gọi hàm này trước khi request
@@ -185,6 +218,7 @@ namespace ShopeeAuto
             }
             dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
             string resource_id = results.data.resource_id;
+            Global.AddLog("Đã đăng được ảnh "+ resource_id);
             return resource_id;
         }
 
@@ -200,29 +234,33 @@ namespace ShopeeAuto
         // Copy ảnh từ Taobao sang Shopee, ghép các array của Taobao lại để dễ truy cập hơn khi BuildSKU đúng dạng của shopee
         public PrepareTaobaoData PrepareTBData(NSTaobaoProduct.TaobaoProduct taobaoProductInfo)
         {
+            Global.AddLog("Đang up ảnh từ taobao sang shopee nên hơi lâu chút");
             PrepareTaobaoData PrepareTaobaoData = new PrepareTaobaoData();
             string shopeeMd5 = "";
-            foreach (NSTaobaoProduct.Prop prop in taobaoProductInfo.Data.SkuBase.Props)
+            if (taobaoProductInfo.Data.SkuBase != null && taobaoProductInfo.Data.SkuBase.Props != null && taobaoProductInfo.Data.SkuBase.Props.Count > 0)
             {
-                foreach (NSTaobaoProduct.Value value in prop.Values)
+                foreach (NSTaobaoProduct.Prop prop in taobaoProductInfo.Data.SkuBase.Props)
                 {
-                    
-                    if (value.Image != null)
+                    foreach (NSTaobaoProduct.Value value in prop.Values)
                     {
-                        // Nếu chưa up thì up
-                        if (!PrepareTaobaoData.uploadedImages.ContainsKey(value.Image))
-                        {
-                            shopeeMd5 = PostImageToShopee(helper.DownloadImage(value.Image));
-                            PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
-                        }
-                        // SKU proppath có dạng "20509:28314;1627207:28341" vì vậy ở đây mình ghép Pid và Vid vào thành 1627207:28341 cho dễ gọi
-                        PrepareTaobaoData.SKUImages[prop.Pid + ":" + value.Vid] = PrepareTaobaoData.uploadedImages[value.Image];
-                    }
 
-                    if(value.Name != null)
-                    {
-                        PrepareTaobaoData.skuNames[(prop.Pid + ":" + value.Vid)] = value.Name;
-                    } 
+                        if (value.Image != null)
+                        {
+                            // Nếu chưa up thì up
+                            if (!PrepareTaobaoData.uploadedImages.ContainsKey(value.Image))
+                            {
+                                shopeeMd5 = PostImageToShopee(helper.DownloadImage(value.Image));
+                                PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
+                            }
+                            // SKU proppath có dạng "20509:28314;1627207:28341" vì vậy ở đây mình ghép Pid và Vid vào thành 1627207:28341 cho dễ gọi
+                            PrepareTaobaoData.SKUImages[prop.Pid + ":" + value.Vid] = PrepareTaobaoData.uploadedImages[value.Image];
+                        }
+
+                        if (value.Name != null)
+                        {
+                            PrepareTaobaoData.skuNames[(prop.Pid + ":" + value.Vid)] = value.Name;
+                        }
+                    }
                 }
             }
 
@@ -264,136 +302,161 @@ namespace ShopeeAuto
             variation.Images = new List<string>() { };
             int index = 0;
 
-            foreach (NSTaobaoProduct.Skus Sku in taobaoProductInfo.Data.SkuBase.Skus)
+            if (taobaoProductInfo.Data.SkuBase != null && taobaoProductInfo.Data.SkuBase.Skus != null && taobaoProductInfo.Data.SkuBase.Skus.Count > 0)
             {
-                string[] skuProps = Sku.PropPath.Split(';');
-
-                string skuName = "";
-                if (taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Quantity > 0)
+                foreach (NSTaobaoProduct.Skus Sku in taobaoProductInfo.Data.SkuBase.Skus)
                 {
-                    model.Id = 0;
-                    model.Name = "";
-                    // Đăng tối đa 79 sản phẩm vì mình thích thế, hihi
-                    model.Stock = Math.Min(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Quantity, 69);
+                    string[] skuProps = Sku.PropPath.Split(';');
 
-                    // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
-                    //float SKUPrice = SKUData.price * revenuePercent; // Dòng này sai, phải gọi lên API tính giá vc (giá gốc) xong rồi mới nhân tỉ lệ để ra giá rao trên shopee
-                    float modelPrice = float.Parse(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Price.PriceText);
+                    string skuName = "";
+                    if (taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Quantity > 0)
+                    {
+                        model = new NSShopeeCreateProduct.ModelList();
+                        model.Id = 0;
+                        model.Name = "";
+                        // Đăng tối đa 79 sản phẩm vì mình thích thế, hihi
+                        model.Stock = Math.Min(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Quantity, 69);
 
-                    Dictionary<string, string> parameters = new Dictionary<string, string>
-                    {
-                        ["route"] = "shipping-fee-ns",
-                        ["amount"] = modelPrice.ToString(),
-                        ["weight"] = weight.ToString()
-                    };
-                    // Gọi đến chết bao giờ tính đc giá thì thôi, cái này ko thể ko dừng đc
-                    bool calcSuccess = false;
-                    do
-                    {
-                        try
+                        // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
+                        //float SKUPrice = SKUData.price * revenuePercent; // Dòng này sai, phải gọi lên API tính giá vc (giá gốc) xong rồi mới nhân tỉ lệ để ra giá rao trên shopee
+                        float modelPrice = float.Parse(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Price.PriceText);
+
+                        Dictionary<string, string> parameters = new Dictionary<string, string>
                         {
-                            apiResult = Global.api.RequestMyApi(parameters);
-                            if(apiResult.success)
+                            ["route"] = "shipping-fee-ns",
+                            ["amount"] = modelPrice.ToString(),
+                            ["weight"] = weight.ToString()
+                        };
+                        // Gọi đến chết bao giờ tính đc giá thì thôi, cái này ko thể ko dừng đc
+                        bool calcSuccess = false;
+                        do
+                        {
+                            try
                             {
-                                // Đề phòng trường hợp final_price tính sai hoặc trả về 0
-                                // 3600 là tỉ giá, bán kiểu gì cũng phải cao hơn giá này.
-                                model.Price = Math.Min((int)(modelPrice * 3600), (int)JsonConvert.DeserializeObject<dynamic>(apiResult.content).final_price).ToString();
-                                calcSuccess = true;
-                            } else
+                                apiResult = Global.api.RequestMyApi(parameters);
+                                if (apiResult.success)
+                                {
+                                    // Đề phòng trường hợp final_price tính sai hoặc trả về 0
+                                    // 3600 là tỉ giá, bán kiểu gì cũng phải cao hơn giá này.
+                                    model.Price = Math.Min((int)(modelPrice * 3600), (int)JsonConvert.DeserializeObject<dynamic>(apiResult.content).final_price).ToString();
+                                    calcSuccess = true;
+                                }
+                                else
+                                {
+                                    Global.AddLog("Tính giá chưa đc, tao gọi lại đến chết, bao giờ tính đc thì thôi");
+                                    Thread.Sleep(1000);
+                                }
+                            }
+                            catch (Exception e)
                             {
-                                Global.AddLog("Tính giá chưa đc, tao gọi lại đến chết, bao giờ tính đc thì thôi");
+                                Global.AddLog("Tính giá chưa đc lại còn bị lỗi " + e.Message.ToString() + ", tao gọi lại đến chết, bao giờ tính đc thì thôi");
                                 Thread.Sleep(1000);
                             }
-                        }
-                        catch(Exception e)
+                        } while (!calcSuccess);
+                        Global.AddLog("Giá bán ra trước khi nhân tỉ lệ: " + model.Price.ToString() + ". Tỉ lệ nhân " + revenuePercent.ToString());
+                        model.Price = ((int)(int.Parse(model.Price) * revenuePercent / 1000) * 1000).ToString();
+                        model.Sku = Sku.SkuId.ToString();
+                        model.TierIndex = new List<int>() { index };
+                        // Thêm SKU vào model_list
+                        model_lists.Add(model);
+
+                        //======= SKU NAME ==========
+                        // Dịch SKU name (để sinh ra dạng Xanh - Size XL)
+                        foreach (string skuProp in skuProps)
                         {
-                            Global.AddLog("Tính giá chưa đc lại còn bị lỗi "+e.Message.ToString()+", tao gọi lại đến chết, bao giờ tính đc thì thôi");
-                            Thread.Sleep(1000);
-                        }
-                    } while (!calcSuccess);
-                    Global.AddLog("Giá bán ra trước khi nhân tỉ lệ: " + model.Price.ToString() + ". Tỉ lệ nhân "+ revenuePercent.ToString());
-                    model.Price = (int.Parse(model.Price) * revenuePercent / 1000 * 1000).ToString();
-                    model.Sku = Sku.SkuId.ToString();
-                    model.TierIndex = new List<int>() { index };
-                    // Thêm SKU vào model_list
-                    model_lists.Add(model);
+                            skuName += Global.FirstLetterToUpper(PrepareTaobaoData.skuNames[skuProp]);
 
-                    //======= SKU NAME ==========
-                    // Dịch SKU name (để sinh ra dạng Xanh - Size XL)
-                    foreach (string skuProp in skuProps)
-                    {
-                        skuName += Global.FirstLetterToUpper(PrepareTaobaoData.skuNames[skuProp]);
-
-                        if (!skuProp.Equals(skuProps.Last()))
-                        {
-                            skuName += " - ";
-                        }
-                    }
-                    string translated = Global.SimpleTranslate(skuName);
-                    Global.AddLog(skuName + " => " + translated);
-                    if(translated != "")
-                    {
-                        skuName = translated;
-                    } else
-                    {
-                        Global.AddLog("TRANSLATE: "+ skuName);
-                    }
-
-                    // Nếu bị trùng với một SKUName nào trước đó thì thêm chữ kiểu x
-                    if (skuNames.Contains(skuName))
-                    {
-                        int alt = 2;
-                        do {
-                            skuName += " kiểu " + alt;
-                            alt++;
-                        } while (skuNames.Contains(skuName));
-                    }
-                    skuNames.Add(skuName);
-                    
-                    Global.AddLog("Giá bán ra cho SKU " + skuName + " là: "  + model.Price.ToString());
-                    // Thêm SKU vào danh sách variation shopee
-                    variation.Options.Add(skuName.ToString());
-                    //======= END SKU NAME ==========
-
-
-
-
-                    //======= SKU IMAGES ==========
-                    // Tìm ảnh để thêm vào images của  varation
-                    if (PrepareTaobaoData.SKUImages.Count > 0)
-                    {
-                        // Nếu sản phẩm taobao có SKU Images thì chọn ảnh tương ứng để add vào đúng thứ tự của Shopee
-                        bool foundImage = false;
-                        foreach(string skuProp in skuProps)
-                        {
-                            if (PrepareTaobaoData.SKUImages.ContainsKey(skuProp))
+                            if (!skuProp.Equals(skuProps.Last()))
                             {
-                                variation.Images.Add(PrepareTaobaoData.SKUImages[skuProp]);
-                                foundImage = true;
-                                break;
+                                skuName += " - ";
                             }
                         }
-                        // Trong trường hợp variation này ko có ảnh nào khớp thì phải chọn ngẫu nhiên 1 ảnh add vào để đảm bảo
-                        // không bị sai thứ tự mảng
-                        if (!foundImage)
+                        string translated = Global.SimpleTranslate(skuName);
+                        Global.AddLog(skuName + " => " + translated);
+                        if (translated != "")
                         {
-                            foreach(var d in PrepareTaobaoData.uploadedImages)
+                            skuName = translated;
+                        }
+                        else
+                        {
+                            Global.AddLog("TRANSLATE: " + skuName);
+                        }
+                        // SKUName tối đa 20 kí tự
+                        skuName = skuName.Substring(0, Math.Min(20, skuName.Length));
+                        // Nếu bị trùng với một SKUName nào trước đó thì thêm chữ kiểu x
+                        if (skuNames.Contains(skuName))
+                        {
+                            bool foundGoodName = false;
+                            int alt = 2;
+                            do
                             {
-                                variation.Images.Add(d.Value);
-                                break;
+                                if (!skuNames.Contains(skuName.Substring(0, Math.Min(11, skuName.Length)) + " kiểu " + alt))
+                                {
+                                    skuName = skuName.Substring(0, Math.Min(11, skuName.Length)) + " kiểu " + alt;
+                                    foundGoodName = true;
+                                }
+                                else
+                                {
+                                    alt++;
+                                }
+                            } while (!foundGoodName);
+                        }
+                        skuNames.Add(skuName);
+
+                        Global.AddLog("Giá bán ra cho SKU " + skuName + " là: " + model.Price.ToString());
+                        // Thêm SKU vào danh sách variation shopee
+                        variation.Options.Add(skuName.ToString());
+                        //======= END SKU NAME ==========
+
+
+
+
+                        //======= SKU IMAGES ==========
+                        // Tìm ảnh để thêm vào images của  varation
+                        if (PrepareTaobaoData.SKUImages.Count > 0)
+                        {
+                            // Nếu sản phẩm taobao có SKU Images thì chọn ảnh tương ứng để add vào đúng thứ tự của Shopee
+                            bool foundImage = false;
+                            foreach (string skuProp in skuProps)
+                            {
+                                if (PrepareTaobaoData.SKUImages.ContainsKey(skuProp))
+                                {
+                                    variation.Images.Add(PrepareTaobaoData.SKUImages[skuProp]);
+                                    foundImage = true;
+                                    break;
+                                }
+                            }
+                            // Trong trường hợp variation này ko có ảnh nào khớp thì phải chọn ngẫu nhiên 1 ảnh add vào để đảm bảo
+                            // không bị sai thứ tự mảng
+                            if (!foundImage)
+                            {
+                                foreach (var d in PrepareTaobaoData.uploadedImages)
+                                {
+                                    variation.Images.Add(d.Value);
+                                    break;
+                                }
                             }
                         }
+                        //======= END SKU IMAGE ==========
+
+
+
+                        index++;
+                        // Shopee chỉ cho tối đa 20 Variation
+                        if(index == 20)
+                        {
+                            break;
+                        }
                     }
-                    //======= END SKU IMAGE ==========
-
-
-
-                    index++;
-                }              
+                }
             }
             
 
             dynamic responseData = new ExpandoObject();
+            if(index > 0)
+            {
+                tier_variations.Add(variation);
+            }
             responseData.tier_variation = tier_variations;
             responseData.model_list = model_lists;
             Global.AddLog("Lấy SKU xong!");
@@ -403,15 +466,16 @@ namespace ShopeeAuto
         // Sinh ra một description đáng yêu ♥
         public string BeautifulDescription(dynamic postData, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSTaobaoProduct.TaobaoProduct taobaoProductInfo)
         {
+            // Độ dài tối đa 3000 kí tự
             string desciption = postData.Name.ToString().ToUpper()+ @"
 ------------------------------------------------------
 ★ THÔNG TIN SẢN PHẨM
-" + shopeeProductInfo.Item.Description.ToString().Replace(" ,", ", ").Replace(" .", ". ") + @"
+" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ") + @"
 
 ★ CAM KẾT VÀ DỊCH VỤ
-- Sản phẩm đảm bảo chất lượng, chính xác 100 % về thông số, mô tả và hình ảnh.
+- Sản phẩm đảm bảo chất lượng, chính xác 100% về thông số, mô tả và hình ảnh.
 - Sản phẩm được nhập khẩu trực tiếp từ Trung Quốc.
-- Thời gian giao hàng dự kiến: trong vòng 14 ngày làm việc kể từ ngày đặt hàng. Thông tin tracking được gửi tới Quý khách qua tin nhắn Shopee hàng ngày.
+- Thời gian giao hàng dự kiến: Trong vòng 12 ngày kể từ ngày đặt hàng (bao gồm 8 ngày từ TQ về VN và 3 ngày từ Hà Nội tới địa chỉ bất kì trên toàn quốc). Thông tin tracking được gửi tới Quý khách qua tin nhắn Shopee hàng ngày.
 - Hình thức thanh toán: COD toàn quốc.
 - Khách hàng đặt mua số lượng lớn vui lòng liên hệ trực tiếp để được giảm giá tới 20%.
 
@@ -422,12 +486,13 @@ namespace ShopeeAuto
             return desciption;
         }
 
-        public string CopyTaobaoToShopee(NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo)
+        public string CopyTaobaoToShopee(NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProduct.ProductList jobData)
         {
             Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
             Random random = new Random();
-            NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":7,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
+            NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":8,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
 
+            
             PrepareTaobaoData PrepareTaobaoData = PrepareTBData(taobaoProductInfo);
 
             // Tính toán data thật
@@ -486,7 +551,7 @@ namespace ShopeeAuto
                 return "error";
             }
             int weight = 300, width = 5, height = 2, length = 15; 
-            if(shopeeShippings.shipping_infos[0].debug.total_weight != null)
+            if(shopeeShippings.shipping_infos != null &&  shopeeShippings.shipping_infos[0].debug != null && shopeeShippings.shipping_infos[0].debug.total_weight != null)
             {
                 weight = shopeeShippings.shipping_infos[0].debug.total_weight * 1000;
                 width = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].width.ToString()));
@@ -565,11 +630,12 @@ namespace ShopeeAuto
             attributeModel.Attributes = new List<NSShopeeCreateProduct.Attribute>();
 
             // Đẩy data thật vào object
-            postData.Name                               = Global.FirstLetterToUpper(shopeeProductInfo.Item.Name.ToString());
+            string name = ("[HÀNG ORDER] " + Global.FirstLetterToUpper(shopeeProductInfo.Item.Name.ToString()).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ").Replace("Sẵn", "Order").Replace("sẵn", "order").Replace("đẹpk", "đẹp").Replace("đepk", "đẹp"));
+            postData.Name = name.Substring(0, Math.Min(name.Length, 120));
             postData.Images                             = PrepareTaobaoData.generalImgs;
             postData.CategoryPath                       = categoryPath;
             postData.AttributeModel                     = attributeModel;
-            postData.Price                              = ((int)outPrice / 1000 * 1000).ToString();
+            postData.Price                              = ((int)((int)outPrice / 1000) * 1000).ToString();
             postData.TierVariation                      = sku.tier_variation;
             postData.ModelList                          = sku.model_list;
             //postData.ds_cat_rcmd_id                   = random.Next(11111111, 91111111).ToString() + random.Next(11111111, 91111111).ToString(); // Chưa biết cái này là cái gì
@@ -609,10 +675,23 @@ namespace ShopeeAuto
             {
                 if (results.message == "success")
                 {
-                    dynamic SuccessProductID = results.data.result[0].data.product_id;
+                    string SuccessProductID = results.data.result[0].data.product_id.ToString();
                     Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
                     Global.AddLog("===============================");
-                    //driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+
+                    Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+                    // Báo lên server
+                    parameters = new Dictionary<string, string>
+                                {
+                                    { "route", "product/"+jobData.Id },
+                                    { "source", "taobao" },
+                                    { "shopee_item_id",  SuccessProductID},
+                                    { "shopee_shop_id",  Global.myShopId},
+                                    { "shopee_price",  postData.Price},
+                                    { "shopee_model_list",  JsonConvert.SerializeObject(sku.model_list)},
+                                    { "action", "list_done" }
+                                };
+                    Global.api.RequestMyApi(parameters, Method.PUT);
                     return SuccessProductID;
                 }
                 else
