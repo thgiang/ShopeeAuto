@@ -61,11 +61,12 @@ namespace ShopeeAuto
                     {
                         Global.AddLog("ERROR: Lỗi lấy job từ server");
                         Thread.Sleep(5000);
+                        continue;
                     }
-                    dynamic requestResults = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-                    foreach (dynamic element in requestResults)
+                    List<NSApiProduct.ProductList> requestResults = JsonConvert.DeserializeObject<List<NSApiProduct.ProductList>>(apiResult.content);
+                    foreach (NSApiProduct.ProductList element in requestResults)
                     {
-                        Global.AddLog("Đã thêm vào hàng đợi job: " + element._id);
+                        Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
                         QueueElement job = new QueueElement
                         {
                             jobName = "listing",
@@ -119,25 +120,132 @@ namespace ShopeeAuto
                     // Xử lý product chờ được list
                     if(job.jobStatus == "waiting")
                     {
-                        Global.AddLog("Đang up sản phẩm " + job.jobData._id);
-
-                        // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
-                        if (job.jobData.tactic != 0)
+                        NSApiProduct.ProductList jobData = job.jobData;
+                        Global.AddLog("Đang làm việc trên job " + jobData.Id);
+                        #region Tìm sản phẩm rẻ nhất taobao ở taobao
+                        // Kiểm tra xem mình có phải shop phụ trách chính ko. Nếu đúng thì phải scan tất cả các taobaos, nếu ko thì chỉ 
+                        // cần làm đúng công việc của mình là scan cái thằng is_the_best
+                        // Lấy data từ Taobao
+                        float minTaobaoPrice = 999999;
+                        NSTaobaoProduct.TaobaoProduct taobaoProductInfo = new NSTaobaoProduct.TaobaoProduct();
+                        if (jobData.Shops.First().IsPrimary)
                         {
-                            // Lấy ra taobao có profit tốt nhất
-                            dynamic maxProfitItem = new ExpandoObject();
-                            float maxProfitPercent = 0;
-                            foreach(dynamic taobao_item in job.jobData.taobao_ids)
+                            Global.AddLog("Đang tìm thằng taobao nào bán rẻ nhất");
+                            // Nếu là primary thì phải scan lại tất cả taobaos để xem bây giờ thằng nào đang rẻ nhất.
+                            foreach (NSApiProduct.TaobaoId taobaoIdObj in jobData.TaobaoIds)
                             {
-                                if(taobao_item.profit.percent > maxProfitPercent)
+                                Global.AddLog("Quét qua taobaoId " + taobaoIdObj.ItemId);
+                                ApiResult apiResult;
+                                apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22" + taobaoIdObj.ItemId.ToString() + "%22%7D", Method.GET);
+                                Thread.Sleep(1000); // Request nhanh quá bị taobao chặn
+                                if (apiResult.success)
                                 {
-                                    maxProfitPercent = taobao_item.profit.percent;
-                                    maxProfitItem = taobao_item;
+                                    NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
+                                    // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
+                                    tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
+                                    // Tìm đc thằng rẻ hơn
+
+                                    string[] tempPrices = tbp.Data.Details.Price.Price.PriceText.Split('-');
+                                    float tempPrice = float.Parse(tempPrices[0]);
+                                    if (tbp.Data.Details.Price.ExtraPrices != null && tbp.Data.Details.Price.ExtraPrices.Count > 0)
+                                    {
+                                        tempPrices = tbp.Data.Details.Price.ExtraPrices.First().PriceText.Split('-');
+                                        tempPrice = float.Parse(tempPrices[0]);
+                                    }
+                                    if (tbp.Data.Details.Price.NewExtraPrices != null && tbp.Data.Details.Price.NewExtraPrices.Count > 0)
+                                    {
+                                        tempPrices = tbp.Data.Details.Price.NewExtraPrices.First().PriceText.Split('-');
+                                        tempPrice = float.Parse(tempPrices[0]);
+                                    }
+                                    if (tempPrice < minTaobaoPrice)
+                                    {
+                                        taobaoProductInfo = tbp;
+                                        minTaobaoPrice = tempPrice;
+                                    }
                                 }
                             }
-                            
-                            // Copy từ taobao sang shopee
-                            Shopee.CopyTaobaoToShopee(job.jobData.shopee_ids[0].item_id.ToString(), job.jobData.shopee_ids[0].shop_id.ToString(), maxProfitItem.item_id.ToString());
+
+                            if (minTaobaoPrice == 999999)
+                            {
+                                // Nếu ko tìm đc thằng rẻ nhất thì job này fail
+                                Global.AddLog("ERROR: Lỗi không tìm đc sản phẩm rẻ nhất");
+                                // Chạy job tiếp theo
+                                continue;
+                            } else
+                            {
+                                // Tìm được thằng rẻ nhất thì báo về server để update
+                                Dictionary<string, string> parameters = new Dictionary<string, string>
+                                {
+                                    { "route", "product/"+jobData.Id },
+                                    { "source", "taobao" },
+                                    { "item_id",  taobaoProductInfo.Data.Item.ItemId}
+                                };
+                                ApiResult apiResult = Global.api.RequestMyApi(parameters, Method.PUT);
+                                if (apiResult.success)
+                                {
+                                    Global.AddLog("Đã gửi thông tin update is_the_best lên server " + taobaoProductInfo.Data.Item.ItemId);
+                                } else
+                                {
+                                    Global.AddLog("Lỗi khi gửi thông tin is_the_best lên server nhưng mà mình kệ nó hihi, cứ chạy tiếp");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Nếu ko phải primay thì cứ lấy thằng isTheBest
+                            foreach (NSApiProduct.TaobaoId taobaoIdObj in jobData.TaobaoIds)
+                            {
+                                if (taobaoIdObj.IsTheBest)
+                                {
+                                    ApiResult apiResult;
+                                    apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%" + taobaoIdObj.ItemId.ToString() + "%22%7D", Method.GET);
+                                    if (apiResult.success)
+                                    {
+                                        NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
+                                        // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
+                                        tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
+                                        // Tìm đc thằng rẻ hơn
+                                        if (float.Parse(tbp.Data.Details.Price.ExtraPrices.First().PriceText) < minTaobaoPrice)
+                                        {
+                                            taobaoProductInfo = tbp;
+                                            minTaobaoPrice = float.Parse(tbp.Data.Details.Price.ExtraPrices.First().PriceText);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Global.AddLog("ERROR: Lỗi không lấy đc thông tin sản phẩm taobao. Chuyển sang job tiếp theo");
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
+
+                        #endregion
+
+                        // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
+                        if (jobData.Tactic != 0)
+                        {
+                            #region Lấy data từ Shopee
+                            Global.AddLog("Lấy data từ Shopee");
+                            NSShopeeProduct.ShopeeProduct shopeeProductInfo = Shopee.GetShopeeProductData(jobData.ShopeeIds.First().ItemId, jobData.ShopeeIds.First().ShopId);
+                            if (shopeeProductInfo == null)
+                            {
+                                Global.AddLog("ERROR: Lỗi lấy thông tin sản phẩm shopeeId " + jobData.ShopeeIds.First().ItemId + ", shopId " + jobData.ShopeeIds.First().ShopId);
+                                continue;
+                            };
+                            Global.AddLog("Lấy data từ Shopee xong");
+                            #endregion
+
+                            if(taobaoProductInfo != null)
+                            {
+                                Shopee.CopyTaobaoToShopee(taobaoProductInfo, shopeeProductInfo);
+                            } else
+                            {
+                                Global.AddLog("ERROR: Thật ra theo logic code của mình thì dòng này sẽ ko bao giờ đc gọi tới, bởi vì đi tới đây thì taobaoProductInfo đã khác null rồi");
+                                continue;
+                            }
+                           
                         }
                         // Ngược lại thì copy thông tin từ Taobao rồi dịch
                         else
@@ -170,18 +278,9 @@ namespace ShopeeAuto
                 Application.Exit();
             }
 
-
-            ApiResult apiResult;
-            apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22609581114673%22%7D", Method.GET);
-            if(apiResult.success)
-            {
-                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-            }
-
             // Khởi tạo ShopeeWorker
             Shopee = new ShopeeWorker();
 
-            
 
             // Thread này định kì gọi lên API tổng để xin công việc mới
             Thread threadUpdate= new Thread(SApi);
@@ -197,6 +296,13 @@ namespace ShopeeAuto
             Global.driver.Quit();
             Environment.Exit(Environment.ExitCode);
             Application.Exit();
+        }
+
+        private void txtDebug_TextChanged(object sender, EventArgs e)
+        {
+            txtDebug.SelectionStart = txtDebug.Text.Length;
+            // scroll it automatically
+            txtDebug.ScrollToCaret();
         }
     }
 }

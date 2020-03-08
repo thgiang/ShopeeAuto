@@ -49,12 +49,15 @@ namespace ShopeeAuto
             string url = apiUrl + parameters["route"];
             var client = new RestClient(url);
             var request = new RestRequest(method);
-            request.AddHeader("content-type", "application/json; charset=UTF-8");
+            if(method == Method.PUT)
+            {
+                request.AddHeader("content-type", "application/x-www-form-urlencoded");
+            }
 
             // Add parameters to request
             foreach (var key in parameters.Keys)
             {
-                if (!string.IsNullOrEmpty(parameters[key]))
+                if (!string.IsNullOrEmpty(parameters[key]) && key != "route")
                 {
                     request.AddParameter(key, parameters[key]);
                 }
@@ -144,7 +147,6 @@ namespace ShopeeAuto
                     Thread.Sleep(1000);
                 }
             } while (requestTime < 3);
-
 
             return result;
         }

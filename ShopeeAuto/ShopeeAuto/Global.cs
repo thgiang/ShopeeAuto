@@ -32,12 +32,14 @@ namespace ShopeeAuto
             // Init Dictionary
             myDictionary.Add("colour", "Màu");
             myDictionary.Add("size", "Size");
-            myDictionary.Add("black", "Đen");
+            myDictionary.Add("黑色", "Đen");
             myDictionary.Add("gray", "Xám");
             myDictionary.Add("yellow", "Vàng");
-            myDictionary.Add("red", "Đỏ");
+            myDictionary.Add("红色", "Đỏ");
+            myDictionary.Add("藏蓝", "Xanh tím than");
             myDictionary.Add("white", "Trắng");
             myDictionary.Add("blue", "Xanh da trời");
+            myDictionary.Add("斤", " x 0.5kg");
 
             myDictionary.Add("s", "S");
             myDictionary.Add("l", "L");
