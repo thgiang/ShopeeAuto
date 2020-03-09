@@ -148,7 +148,13 @@ namespace NSTaobaoProduct
 
     public partial class Props
     {
-        public List<Dictionary<string, List<Dictionary<string, string>>>> GroupProps { get; set; }
+        [JsonProperty("groupProps")]
+        public List<GroupProp> GroupProps { get; set; }
+    }
+    public partial class GroupProp
+    {
+        [JsonProperty("基本信息")]
+        public List<Dictionary<string, string>> BasicInfo { get; set; }
     }
 
     public partial class Rate

@@ -217,9 +217,16 @@ namespace ShopeeAuto
                 return "";
             }
             dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-            string resource_id = results.data.resource_id;
-            Global.AddLog("Đã đăng được ảnh "+ resource_id);
-            return resource_id;
+            if(results.message != "failed")
+            {
+                string resource_id = results.data.resource_id;
+                Global.AddLog("Đã đăng được ảnh " + resource_id);
+                return resource_id;
+            } else
+            {
+                Global.AddLog("Lỗi khi đăng ảnh "+ path);
+                return "";
+            }
         }
 
 
@@ -249,11 +256,21 @@ namespace ShopeeAuto
                             // Nếu chưa up thì up
                             if (!PrepareTaobaoData.uploadedImages.ContainsKey(value.Image))
                             {
-                                shopeeMd5 = PostImageToShopee(helper.DownloadImage(value.Image));
-                                PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
+                                string downloadedImage = helper.DownloadImage(value.Image);
+                                if(downloadedImage != "CANNOT_DOWNLOAD_FILE")
+                                {
+                                    shopeeMd5 = PostImageToShopee(downloadedImage);
+                                }
+                                if (shopeeMd5 != "")
+                                {
+                                    PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
+                                }
                             }
                             // SKU proppath có dạng "20509:28314;1627207:28341" vì vậy ở đây mình ghép Pid và Vid vào thành 1627207:28341 cho dễ gọi
-                            PrepareTaobaoData.SKUImages[prop.Pid + ":" + value.Vid] = PrepareTaobaoData.uploadedImages[value.Image];
+                            if(PrepareTaobaoData.uploadedImages[value.Image] != null)
+                            {
+                                PrepareTaobaoData.SKUImages[prop.Pid + ":" + value.Vid] = PrepareTaobaoData.uploadedImages[value.Image];
+                            }   
                         }
 
                         if (value.Name != null)
@@ -268,9 +285,18 @@ namespace ShopeeAuto
             {
                 // Lặp nốt mảng item_imgs thì up rồi cho vào List
                 if (!PrepareTaobaoData.uploadedImages.ContainsKey(item_img)) {
-                    shopeeMd5 = PostImageToShopee(helper.DownloadImage(item_img));
-                    PrepareTaobaoData.uploadedImages[item_img] = shopeeMd5;
-                    PrepareTaobaoData.generalImgs.Add(shopeeMd5);
+                    string downloadedImage = helper.DownloadImage(item_img);
+                    if (downloadedImage != "CANNOT_DOWNLOAD_FILE")
+                    {
+                        shopeeMd5 = PostImageToShopee(downloadedImage);
+                    }
+
+                    if (shopeeMd5 != "")
+                    {
+                        PrepareTaobaoData.uploadedImages[item_img] = shopeeMd5;
+                        PrepareTaobaoData.generalImgs.Add(shopeeMd5);
+                    }
+                    
                 }
             }
 
@@ -364,23 +390,16 @@ namespace ShopeeAuto
                         // Dịch SKU name (để sinh ra dạng Xanh - Size XL)
                         foreach (string skuProp in skuProps)
                         {
-                            skuName += Global.FirstLetterToUpper(PrepareTaobaoData.skuNames[skuProp]);
+                            // Mã này là size
+                            //if(skuProp.StartsWith("20509")), //1627207 là màu
+                            skuName += Global.Translate(PrepareTaobaoData.skuNames[skuProp]);
 
                             if (!skuProp.Equals(skuProps.Last()))
                             {
                                 skuName += " - ";
                             }
                         }
-                        string translated = Global.SimpleTranslate(skuName);
-                        Global.AddLog(skuName + " => " + translated);
-                        if (translated != "")
-                        {
-                            skuName = translated;
-                        }
-                        else
-                        {
-                            Global.AddLog("TRANSLATE: " + skuName);
-                        }
+                        
                         // SKUName tối đa 20 kí tự
                         skuName = skuName.Substring(0, Math.Min(20, skuName.Length));
                         // Nếu bị trùng với một SKUName nào trước đó thì thêm chữ kiểu x
@@ -464,25 +483,66 @@ namespace ShopeeAuto
         }
 
         // Sinh ra một description đáng yêu ♥
-        public string BeautifulDescription(dynamic postData, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSTaobaoProduct.TaobaoProduct taobaoProductInfo)
+        public string BeautifulDescription(NSShopeeCreateProduct.CreateProduct postData, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSTaobaoProduct.TaobaoProduct taobaoProductInfo)
         {
             // Độ dài tối đa 3000 kí tự
-            string desciption = postData.Name.ToString().ToUpper()+ @"
-------------------------------------------------------
-★ THÔNG TIN SẢN PHẨM
-" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ") + @"
+            //" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(".", ". ") + @"
+            string fullPropsString = "";
+            List<string> ignoreKeys = new List<string> { "甜美", "货号", "货号", "套头", "开口深度", "皮质特征" };
+            List<string> ignoreValues = new List<string> { "甜美", "货号", "货号", "套头", "开口深度", "皮质特征" };
+            // 甜美 ngọt ngào là cái qq gì @@ 
+            // 品牌 thương hiệu
+            // 货号 mã số bài viết
+            // 套头 ko dịch nổi, tay áo, bảo hiểm rủi do, chả liên quan gì nhau
+            // 开口深度 Độ nông sâu của giày nhưng nói chung tối nghĩa
 
-★ CAM KẾT VÀ DỊCH VỤ
+            if (taobaoProductInfo.Data.Props != null && taobaoProductInfo.Data.Props.GroupProps != null)
+            {
+                foreach (NSTaobaoProduct.GroupProp groupProp in taobaoProductInfo.Data.Props.GroupProps)
+                {
+                    if(groupProp.BasicInfo != null)
+                    {
+                        foreach (Dictionary<string, string> prop in groupProp.BasicInfo)
+                        {
+                            foreach (KeyValuePair<string, string> entry in prop)
+                            {
+
+                                if (ignoreKeys.Contains(entry.Key))
+                                {
+                                    continue;
+                                }
+
+                                if (ignoreValues.Contains(entry.Value))
+                                {
+                                    continue;
+                                }
+
+                                fullPropsString += Global.Translate(entry.Key);
+                                fullPropsString += ": ";                                
+                                fullPropsString += Global.Translate(entry.Value) + @"
+";
+
+                            }
+
+                        }
+                    }
+                   
+                }
+            }
+            
+            string desciption = postData.Name.ToString().ToUpper() + @"
+------------------------------------------------------
+★★★ THÔNG TIN SẢN PHẨM
+"+ fullPropsString + @"
+
+★★★ CAM KẾT VÀ DỊCH VỤ
 - Sản phẩm đảm bảo chất lượng, chính xác 100% về thông số, mô tả và hình ảnh.
 - Sản phẩm được nhập khẩu trực tiếp từ Trung Quốc.
 - Thời gian giao hàng dự kiến: Trong vòng 12 ngày kể từ ngày đặt hàng (bao gồm 8 ngày từ TQ về VN và 3 ngày từ Hà Nội tới địa chỉ bất kì trên toàn quốc). Thông tin tracking được gửi tới Quý khách qua tin nhắn Shopee hàng ngày.
 - Hình thức thanh toán: COD toàn quốc.
 - Khách hàng đặt mua số lượng lớn vui lòng liên hệ trực tiếp để được giảm giá tới 20%.
-
-★ THÔNG TIN LIÊN HỆ
-☎ Mobile: 0969.546.294
-📞 Zalo: 0969.546.294";
-
+";
+            desciption = Global.AntiDangStyle(desciption);
             return desciption;
         }
 
@@ -630,7 +690,7 @@ namespace ShopeeAuto
             attributeModel.Attributes = new List<NSShopeeCreateProduct.Attribute>();
 
             // Đẩy data thật vào object
-            string name = ("[HÀNG ORDER] " + Global.FirstLetterToUpper(shopeeProductInfo.Item.Name.ToString()).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ").Replace("Sẵn", "Order").Replace("sẵn", "order").Replace("đẹpk", "đẹp").Replace("đepk", "đẹp"));
+            string name = Global.AntiDangStyle(shopeeProductInfo.Item.Name.ToString()).Replace("sẵn", "order").Replace("Sẵn", "Order").Replace("SẴN", "ORDER");
             postData.Name = name.Substring(0, Math.Min(name.Length, 120));
             postData.Images                             = PrepareTaobaoData.generalImgs;
             postData.CategoryPath                       = categoryPath;

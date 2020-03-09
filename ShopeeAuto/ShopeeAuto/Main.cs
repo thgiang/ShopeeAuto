@@ -151,7 +151,12 @@ namespace ShopeeAuto
                                     NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
                                     // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
 
-                                    // TODO: Xử lý trường hợp ApiStack null
+                                    if(tbp.Data.ApiStack == null)
+                                    {
+                                        // SẢN PHẨM NÀY CHẢ CÓ THÔNG TIN MẸ GÌ CẢ, BÁN CŨNG KHÓ. THÔI NEXT
+                                        continue;
+                                    }
+
                                     tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
                                     // Tìm đc thằng rẻ hơn
 
@@ -300,6 +305,14 @@ namespace ShopeeAuto
             {
                 MessageBox.Show("Please put " + System.AppDomain.CurrentDomain.FriendlyName + ".config in same folder");
                 Application.Exit();
+            }
+
+
+            ApiResult apiResult;
+            apiResult = Global.api.RequestOthers("https://translate.google.com/translate_a/t?v=2.0&hl=vi&ie=UTF-8&client=at&sc=1&oe=UTF-8&text=珍珠白送充电硅胶洁面刷&sl=zh-CN&tl=vi", Method.POST);
+            if (apiResult.success)
+            {
+                Global.AddLog(apiResult.content);
             }
 
             // Khởi tạo ShopeeWorker

@@ -12,16 +12,25 @@ namespace ShopeeAuto
     {
         public string DownloadImage(string PictureUrl)
         {
-            string randomPath = Path.GetTempFileName();
-            if (PictureUrl.Contains("http") == false)
+            try
             {
-                PictureUrl = "https:" + PictureUrl;
+                string randomPath = Path.GetTempFileName();
+                if (PictureUrl.Contains("http") == false)
+                {
+                    PictureUrl = "https:" + PictureUrl;
+                }
+                using (WebClient webClient = new WebClient())
+                {
+                    webClient.DownloadFile(PictureUrl, randomPath);
+                    return randomPath;
+                }
             }
-            using (WebClient webClient = new WebClient())
+            catch
             {
-                webClient.DownloadFile(PictureUrl, randomPath);
-                return randomPath;
+                Global.AddLog("ERROR: Không tải đc file " + PictureUrl);
+                return "CANNOT_DOWNLOAD_FILE";
             }
+            
         }
     }
 }

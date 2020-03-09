@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using Newtonsoft.Json;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using System;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows.Forms;
 
 namespace ShopeeAuto
@@ -30,6 +32,7 @@ namespace ShopeeAuto
 
         public static void Init()
         {
+            /*
             // Init Dictionary
             myDictionary.Add("colour", "Màu");
             myDictionary.Add("size", "Size");
@@ -54,7 +57,7 @@ namespace ShopeeAuto
             myDictionary.Add("3xl", "3XL");
             myDictionary.Add("4xl", "4XL");
             myDictionary.Add("5xl", "5XL");
-
+            */
 
             //  StartDriver
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
@@ -67,24 +70,43 @@ namespace ShopeeAuto
             wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
         }
 
-        public static string FirstLetterToUpper(string str)
+        public static string AntiDangStyle(string str)
         {
             if (str == null)
                 return null;
 
             if (str.Length > 1)
-                return char.ToUpper(str[0]) + str.Substring(1);
-
-            return str.ToUpper();
+            {
+                str = char.ToUpper(str[0]) + str.Substring(1);
+            }
+   
+            str = str.Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ").Replace("đẹpk", "đẹp").Replace("đepk", "đẹp");
+            return str;
         }
 
-        public static string SimpleTranslate(string Data)
+        public static string Translate(string str)
         {
-            Data = Data.ToLower();
-            Data = Data.Replace(":", " : ");
-            Data = Data.Replace(".", " ");
+            ApiResult apiResult;
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                ["route"] = "translate/ahihi",
+                ["text"] = str,
+            };
+            apiResult = Global.api.RequestMyApi(parameters);
+            if (apiResult.success)
+            {
+                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                return results.data.vi;
+            } else
+            {
+                return str;
+            }
+            /*
+            str = str.ToLower();
+            str = str.Replace(":", " : ");
+            str = str.Replace(".", " ");
 
-            List<string> splits = Data.Split(' ').ToList<string>();
+            List<string> splits = str.Split(' ').ToList<string>();
             string result = "";
             foreach (string split in splits)
             {
@@ -99,6 +121,7 @@ namespace ShopeeAuto
 
             }
             return result.Trim();
+            */
         }
 
 
