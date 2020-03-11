@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NLog;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -64,7 +65,9 @@ namespace ShopeeAuto
                         Thread.Sleep(5000);
                         continue;
                     }
-                    List<NSApiProduct.ProductList> requestResults = JsonConvert.DeserializeObject<List<NSApiProduct.ProductList>>(apiResult.content);
+                    dynamic xx = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                    var dataArray = xx["data"];
+                    List<NSApiProduct.ProductList> requestResults = dataArray.ToObject<List<NSApiProduct.ProductList>>();
                     foreach (NSApiProduct.ProductList element in requestResults)
                     {
                         Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);

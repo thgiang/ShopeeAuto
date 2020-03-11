@@ -394,10 +394,13 @@ namespace ShopeeAuto
                             //if(skuProp.StartsWith("20509")), //1627207 là màu
                             skuName += Global.Translate(PrepareTaobaoData.skuNames[skuProp]);
 
+                         
+                            // Dấu ngăn cách giữa các Prop đúng chuẩn là " - " tuy nhiên do shopee giới hạn 20 kí tự nên thôi chỉ viết dấu cách thôi
                             if (!skuProp.Equals(skuProps.Last()))
                             {
-                                skuName += " - ";
+                                skuName += " ";
                             }
+                            
                         }
                         
                         // SKUName tối đa 20 kí tự
@@ -409,9 +412,9 @@ namespace ShopeeAuto
                             int alt = 2;
                             do
                             {
-                                if (!skuNames.Contains(skuName.Substring(0, Math.Min(11, skuName.Length)) + " kiểu " + alt))
+                                if (!skuNames.Contains(skuName.Substring(0, Math.Min(17, skuName.Length)) + " K" + alt))
                                 {
-                                    skuName = skuName.Substring(0, Math.Min(11, skuName.Length)) + " kiểu " + alt;
+                                    skuName = skuName.Substring(0, Math.Min(17, skuName.Length)) + " K" + alt;
                                     foundGoodName = true;
                                 }
                                 else
@@ -461,8 +464,8 @@ namespace ShopeeAuto
 
 
                         index++;
-                        // Shopee chỉ cho tối đa 20 Variation
-                        if(index == 20)
+                        // Shopee chỉ cho tối đa 15 Variation
+                        if(index == 16)
                         {
                             break;
                         }
@@ -488,13 +491,17 @@ namespace ShopeeAuto
             // Độ dài tối đa 3000 kí tự
             //" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(".", ". ") + @"
             string fullPropsString = "";
-            List<string> ignoreKeys = new List<string> { "甜美", "货号", "货号", "套头", "开口深度", "皮质特征" };
-            List<string> ignoreValues = new List<string> { "甜美", "货号", "货号", "套头", "开口深度", "皮质特征" };
+            List<string> ignoreKeys = new List<string> {"", "甜美", "货号", "货号", "套头", "开口深度", "皮质特征", "通勤", "流行元素/工艺", "安全等级", "销售渠道类型"};
+            List<string> ignoreValues = new List<string> {"", "甜美", "货号", "货号", "套头", "开口深度", "皮质特征", "其他", "其他/other", "other", "短裙" };
+            List<string> notImportantWords = new List<string> { "建议" };
             // 甜美 ngọt ngào là cái qq gì @@ 
+            // 安全等级 cấp độ bảo mật, vô nghĩa quá
             // 品牌 thương hiệu
             // 货号 mã số bài viết
             // 套头 ko dịch nổi, tay áo, bảo hiểm rủi do, chả liên quan gì nhau
             // 开口深度 Độ nông sâu của giày nhưng nói chung tối nghĩa
+            // 短裙 Kiểu váy: 短裙 (nghĩa là váy), ý là váy bt, nhưng mà bt thì thôi ko cần ghi
+            // 流行元素/工艺: Cách may ra cái váy, giá trị thường là: May, có cúc... nhưng mà sida quá loại
 
             if (taobaoProductInfo.Data.Props != null && taobaoProductInfo.Data.Props.GroupProps != null)
             {
@@ -506,20 +513,29 @@ namespace ShopeeAuto
                         {
                             foreach (KeyValuePair<string, string> entry in prop)
                             {
+                                string k = entry.Key;
+                                string v = entry.Value;
 
-                                if (ignoreKeys.Contains(entry.Key))
+                                // Xóa một số từ ko quan trọng
+                                foreach(string notImportantWord in notImportantWords)
+                                {
+                                    k = k.Replace(notImportantWord, "");
+                                    v = v.Replace(notImportantWord, "");
+                                }
+
+                                if (ignoreKeys.Contains(k.ToLower()))
                                 {
                                     continue;
                                 }
 
-                                if (ignoreValues.Contains(entry.Value))
+                                if (ignoreValues.Contains(v.ToLower()))
                                 {
                                     continue;
                                 }
 
-                                fullPropsString += Global.Translate(entry.Key);
+                                fullPropsString += Global.Translate(k);
                                 fullPropsString += ": ";                                
-                                fullPropsString += Global.Translate(entry.Value) + @"
+                                fullPropsString += Global.Translate(v) + @"
 ";
 
                             }

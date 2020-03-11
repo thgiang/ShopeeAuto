@@ -95,8 +95,21 @@ namespace ShopeeAuto
             apiResult = Global.api.RequestMyApi(parameters);
             if (apiResult.success)
             {
-                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-                return results.data.vi;
+                try
+                {
+                    dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                    if(results.status == "error")
+                    {
+                        Global.AddLog("ERROR: Dịch bị lỗii " + results.message);
+                    }
+                    return results.data.vi;
+                }
+                catch (Exception e)
+                {
+                    Global.AddLog("ERROR: Dịch bị lỗi " + e.Message);
+                    return str;
+                }
+               
             } else
             {
                 return str;
