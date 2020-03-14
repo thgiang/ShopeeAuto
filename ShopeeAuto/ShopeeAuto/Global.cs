@@ -60,14 +60,26 @@ namespace ShopeeAuto
             */
 
             //  StartDriver
+            foreach (var process in Process.GetProcessesByName("chrome"))
+            {
+                process.Kill();
+            }
+
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
             chromeDriverService.HideCommandPromptWindow = true;
             ChromeOptions options = new ChromeOptions();
             options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
             options.AddArguments("profile-directory=Profile 1");
             options.AddArguments("start-maximized");
-            driver = new ChromeDriver(chromeDriverService, options);
-            wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+            try
+            {
+                driver = new ChromeDriver(chromeDriverService, options);
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+            } catch
+            {
+                driver = new ChromeDriver(chromeDriverService, options);
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+            }
         }
 
         public static string AntiDangStyle(string str)
@@ -141,7 +153,12 @@ namespace ShopeeAuto
         public static void AddLog(string text)
         {
             txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text += "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n"; });
-            File.AppendAllText("log.txt", "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n");
+            try
+            {
+                File.AppendAllText("log.txt", "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n");
+            }
+            catch { }
+           
             return;
         }
     }

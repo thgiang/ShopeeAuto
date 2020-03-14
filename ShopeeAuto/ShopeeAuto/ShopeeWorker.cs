@@ -12,6 +12,8 @@ using Newtonsoft.Json;
 using System.IO;
 using System.Net;
 using Newtonsoft.Json.Serialization;
+using System.Windows.Forms;
+using System.Drawing;
 
 namespace ShopeeAuto
 {
@@ -40,7 +42,7 @@ namespace ShopeeAuto
                 minRevenue = int.Parse(client.Data.ShopeeMinRevenue.ToString());
                 maxRevenue = int.Parse(client.Data.ShopeeMaxRevenue.ToString());
                 username = client.Data.ShopeeUsername.ToString();
-                password = client.Data.ShopeeUsername.ToString();
+                password = client.Data.ShopeePassword.ToString();
             }
             // Lỗi khi gọi lên server lấy username, pass
             else
@@ -94,9 +96,10 @@ namespace ShopeeAuto
             {
                 IWebElement loginForm = Global.driver.FindElement(By.CssSelector("form.signin-form"));
                 loginForm.FindElements(By.TagName("input"))[0].SendKeys(username); // Username
-                loginForm.FindElements(By.TagName("input"))[1].SendKeys(password); // Password
-                loginForm.FindElement(By.ClassName("shopee-checkbox__indicator")).Click(); // Remember me
-                loginForm.FindElement(By.ClassName("shopee-button--primary")).Click(); // Login now
+                loginForm.FindElements(By.TagName("input"))[1].SendKeys(password + "\n"); // Password
+
+                //loginForm.FindElement(By.ClassName("shopee-checkbox__indicator")).Click(); // Remember me
+                //loginForm.FindElement(By.ClassName("shopee-button--primary")).Click(); // Login now
 
                 // Check lại xem có lỗi gì khi đăng nhập ko, nếu có thì hiển thị, nếu ko thì login thành công
                 try
@@ -781,6 +784,111 @@ namespace ShopeeAuto
             {
                 return "error";
             }
+        }
+
+
+        //============================ XỬ LÝ ORDER =========================================== 
+        public string ProcessNewCheckout()
+        {
+            /*
+            string lastCheckoutId = "";
+            ApiResult apiResult;
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                ["route"] = "last-checkout",
+            };
+
+            apiResult = Global.api.RequestMyApi(parameters);
+            if (apiResult.success)
+            {
+                dynamic lastCheckoutObject = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                if (lastCheckoutObject.status == "success")
+                {
+                    lastCheckoutId = lastCheckoutObject.checkout_id;
+                }
+            }
+            else
+            {
+                Global.AddLog("ERROR: Không lấy được checkout mới nhất");
+                return "error";
+            }
+
+            // Nếu lastCheckoutId = "" thì phải xử lý toàn bộ đơn của shop này
+            List<NSShopeeOrders.Order> orders = new List<NSShopeeOrders.Order>();
+            NSShopeeOrders.ShopeeOrders orderPage;
+            int page = -1;
+            bool shouldBreak = false;
+            do
+            {
+                page++;
+                apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/order/get_order_list/?limit=40&offset=" + (page * 40) + "&total=0&flip_direction=ahead&page_sentinel=0,0&order_by_create_date=desc&is_massship=false", Method.GET, shopeeCookie);
+                if (apiResult.success)
+                {
+                    orderPage = JsonConvert.DeserializeObject<NSShopeeOrders.ShopeeOrders>(apiResult.content);
+                    if (orderPage.Code != 0)
+                    {
+                        Global.AddLog("ERROR: Lỗi lấy danh sách đơn hàng");
+                        return "error";
+                    } else if (orderPage.Data != null && orderPage.Data.Orders != null && orderPage.Data.Orders.Count > 0)
+                    {
+                        foreach (NSShopeeOrders.Order od in orderPage.Data.Orders)
+                        {
+                            if (od.CheckoutId != lastCheckoutId)
+                            {
+                                Global.AddLog("Đã thêm order " + od.CheckoutId + " vào danh sách xử lý");
+                                orders.Add(od);
+                            }
+                            else
+                            {
+                                shouldBreak = true;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        shouldBreak = true;
+                    }
+
+                } else
+                {
+                    Global.AddLog("ERROR: Lỗi khi lấy danh sách đơn hàngg");
+                    return "error";
+                }
+            } while (shouldBreak == false);
+
+    */
+            // Lấy địa chỉ các bưu cục
+            //https://banhang.shopee.vn/api/v3/logistics/get_channel_branches/?channel_id=50018 kèm cookie, J&T
+
+            // POST địa chỉ và phương thức gửi hàng
+            //https://banhang.shopee.vn/api/v3/shipment/init_order/?SPC_CDS=ff48cffa-68c7-41fb-b279-fbc1fb5a7c26&SPC_CDS_VER=2 
+            // {channel_id: 50018, order_id: 37733260616710, forder_id: "37733260616710"}
+
+            // Sau đó liên tục GET tới khi nào lấy đc mã vận đơn thì thôi
+            //https://banhang.shopee.vn/api/v3/shipment/batch_get_forder_shipment_status/?SPC_CDS=ff48cffa-68c7-41fb-b279-fbc1fb5a7c26&SPC_CDS_VER=2&order_list=[%7B%22order_id%22:37733260616710,%22forder_id%22:%2237733260616710%22,%22channel_id%22:50018%7D]
+            //order_list: [{"order_id":37733260616710,"forder_id":"37733260616710","channel_id":50018}]
+            // MÃ vận đơn nằm ở data.orders_status.third_party_tn, can_print_waybill = true
+
+            string orderId = "37733260616710";
+
+            // Chụp ảnh hóa đơn
+            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids="+orderId);
+            try
+            {
+                Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
+                Thread.Sleep(500);
+               
+                Bitmap bmpImage = Helper.ScreenshotWayBill();
+                bmpImage.Save(@"C:\Users\Admin\Desktop\ma_van_don\ketqua_" + orderId + ".jpg");  
+            } catch
+            {
+
+            }
+                
+               
+            // Lưu mã vận đơn
+            return "success";
         }
     }
 }
