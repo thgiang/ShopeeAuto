@@ -790,36 +790,16 @@ namespace ShopeeAuto
         //============================ XỬ LÝ ORDER =========================================== 
         public string ProcessNewCheckout()
         {
-            /*
-            string lastCheckoutId = "";
+            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/sale/");
+
             ApiResult apiResult;
-            Dictionary<string, string> parameters = new Dictionary<string, string>
-            {
-                ["route"] = "last-checkout",
-            };
-
-            apiResult = Global.api.RequestMyApi(parameters);
-            if (apiResult.success)
-            {
-                dynamic lastCheckoutObject = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-                if (lastCheckoutObject.status == "success")
-                {
-                    lastCheckoutId = lastCheckoutObject.checkout_id;
-                }
-            }
-            else
-            {
-                Global.AddLog("ERROR: Không lấy được checkout mới nhất");
-                return "error";
-            }
-
-            // Nếu lastCheckoutId = "" thì phải xử lý toàn bộ đơn của shop này
             List<NSShopeeOrders.Order> orders = new List<NSShopeeOrders.Order>();
             NSShopeeOrders.ShopeeOrders orderPage;
             int page = -1;
             bool shouldBreak = false;
             do
             {
+                Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
                 page++;
                 apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/order/get_order_list/?limit=40&offset=" + (page * 40) + "&total=0&flip_direction=ahead&page_sentinel=0,0&order_by_create_date=desc&is_massship=false", Method.GET, shopeeCookie);
                 if (apiResult.success)
@@ -833,7 +813,8 @@ namespace ShopeeAuto
                     {
                         foreach (NSShopeeOrders.Order od in orderPage.Data.Orders)
                         {
-                            if (od.CheckoutId != lastCheckoutId)
+                            // Chỉ lấy order trong 7 ngày qua. Còn lại chắc chắn đc xử lý xong r
+                            if (od.CreateTime > unixTimestamp - 7 * 24 * 60 * 60)
                             {
                                 Global.AddLog("Đã thêm order " + od.CheckoutId + " vào danh sách xử lý");
                                 orders.Add(od);
@@ -857,37 +838,112 @@ namespace ShopeeAuto
                 }
             } while (shouldBreak == false);
 
-    */
-            // Lấy địa chỉ các bưu cục
-            //https://banhang.shopee.vn/api/v3/logistics/get_channel_branches/?channel_id=50018 kèm cookie, J&T
-
-            // POST địa chỉ và phương thức gửi hàng
-            //https://banhang.shopee.vn/api/v3/shipment/init_order/?SPC_CDS=ff48cffa-68c7-41fb-b279-fbc1fb5a7c26&SPC_CDS_VER=2 
-            // {channel_id: 50018, order_id: 37733260616710, forder_id: "37733260616710"}
-
-            // Sau đó liên tục GET tới khi nào lấy đc mã vận đơn thì thôi
-            //https://banhang.shopee.vn/api/v3/shipment/batch_get_forder_shipment_status/?SPC_CDS=ff48cffa-68c7-41fb-b279-fbc1fb5a7c26&SPC_CDS_VER=2&order_list=[%7B%22order_id%22:37733260616710,%22forder_id%22:%2237733260616710%22,%22channel_id%22:50018%7D]
-            //order_list: [{"order_id":37733260616710,"forder_id":"37733260616710","channel_id":50018}]
-            // MÃ vận đơn nằm ở data.orders_status.third_party_tn, can_print_waybill = true
-
-            string orderId = "37733260616710";
-
-            // Chụp ảnh hóa đơn
-            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids="+orderId);
-            try
+            foreach (NSShopeeOrders.Order order in orders)
             {
-                Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
-                Thread.Sleep(500);
-               
-                Bitmap bmpImage = Helper.ScreenshotWayBill();
-                bmpImage.Save(@"C:\Users\Admin\Desktop\ma_van_don\ketqua_" + orderId + ".jpg");  
-            } catch
-            {
+                // logistics_channel 50018 là J&T, 50011 Gia hàng tiết kiệm
+                switch (order.Status)
+                {
+                    case 5: // Bị hủy
+                        break;
+                    case 1:
+                        /*
+                        //Đoạn này để test, lấy lại hóa đơn vận đơn cũ.
+                        Global.AddLog(order.OrderId + ". Chạy vào đây nè");
 
+                        ApiResult apiResult2;
+                        apiResult2 = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/get_drop_off/?order_id=" + order.OrderId, Method.GET, shopeeCookie);
+                        if (apiResult.success)
+                        {
+                            dynamic results2 = JsonConvert.DeserializeObject<dynamic>(apiResult2.content);
+                            if (results2.data != null && results2.data.consignment_no != null && results2.data.consignment_no != "")
+                            {
+                                order.MaVanDon = results2.data.consignment_no;
+                                Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: " + order.MaVanDon);
+
+                                // Chụp ảnh hóa đơn
+                                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
+                                try
+                                {
+                                    Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
+                                    Thread.Sleep(1000);
+                                    Bitmap bmpImage = Helper.ScreenshotWayBill();
+                                    bmpImage.Save(@"C:\Users\Admin\Desktop\ma_van_don\ketqua_" + order.OrderId + ".jpg");
+                                }
+                                catch
+                                {
+
+                                }
+                                // Đã có mã vận đơn và chụp ảnh xong nên break thôi
+                                break;
+                            }
+                        }
+
+                         */
+
+
+                        // order.LogisticsStatus == 1 là đã add thông tin vận chuyển. Ko cần làm gì nữa
+                        // = 9 cần add thoongtin vận chuyển
+                        if (order.LogisticsStatus == 9)
+                        {
+                            Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>();
+                            parameters.Add("json_body", "{\"channel_id\":" + order.LogisticsChannel + ",\"order_id\":" + order.OrderId + ",\"forder_id\":\"" + order.OrderId + "\"}");
+
+                            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/init_order/", Method.POST, shopeeCookie, parameters);
+                            if (apiResult.success)
+                            {
+                                dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                                if (results.message != null && results.message == "success")
+                                {
+                                    Global.AddLog("OrderID: " + order.OrderId + ". Submit phương thức vận chuyển thành công");
+
+                                    for(int x = 0; x < 5; x++)
+                                    {
+                                        Thread.Sleep(2000);
+                                        Global.AddLog("OrderID: " + order.OrderId + ". Lấy mã vận đơn lần thứ " + x);
+                                        ApiResult apiResult2;
+                                        apiResult2 = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/get_drop_off/?order_id="+order.OrderId, Method.GET, shopeeCookie);
+                                        if (apiResult.success)
+                                        {
+                                            dynamic results2 = JsonConvert.DeserializeObject<dynamic>(apiResult2.content);
+                                            if (results2.data != null && results2.data.consignment_no != null && results2.data.consignment_no != "")
+                                            {
+                                                order.MaVanDon = results2.data.consignment_no;
+                                                Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: "+ order.MaVanDon);
+
+                                                // Chụp ảnh hóa đơn
+                                                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
+                                                try
+                                                {
+                                                    Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
+                                                    Thread.Sleep(1000);
+                                                    Bitmap bmpImage = Helper.ScreenshotWayBill();
+                                                    bmpImage.Save(@"C:\Users\Admin\Desktop\ma_van_don\ketqua_" + order.OrderId + ".jpg");
+                                                }
+                                                catch
+                                                {
+
+                                                }
+                                                Global.AddLog("OrderID: " + order.OrderId + ". Đã lấy xong mã vận đơn và lưu ảnh ở lần thứ " + x);
+                                                // Đã có mã vận đơn và chụp ảnh xong nên break thôi
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Global.AddLog("ERROR: OrderID: " + order.OrderId + ". Lỗi khi submit phương thức vận chuyển (tự mang hàng đến bưu cục)");
+                                return "error";
+                            }
+                            break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
-                
-               
-            // Lưu mã vận đơn
+            // TODO: Bắn lên server
             return "success";
         }
     }

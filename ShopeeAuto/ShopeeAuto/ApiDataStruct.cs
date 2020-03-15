@@ -1688,6 +1688,8 @@ namespace NSShopeeOrders
 
     public partial class Order
     {
+        public string MaVanDon { get; set; } // Cái này ko có trỏng JSON trả về, tự add tay vào thoy
+
         [JsonProperty("comm_fee")]
         public string CommFee { get; set; }
 
@@ -1770,7 +1772,7 @@ namespace NSShopeeOrders
         public bool FirstItemReturn { get; set; }
 
         [JsonProperty("logistics_status")]
-        public long LogisticsStatus { get; set; }
+        public int LogisticsStatus { get; set; }
 
         [JsonProperty("create_time")]
         public long CreateTime { get; set; }

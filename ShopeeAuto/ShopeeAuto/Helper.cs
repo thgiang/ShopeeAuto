@@ -61,7 +61,7 @@ namespace ShopeeAuto
                 //LineAlignment = StringAlignment.Center,
             };
             var font = new Font("Arial", 10, FontStyle.Bold);
-            graphics.DrawRectangle(new Pen(Brushes.Black), new Rectangle(18, height, 518, 55));
+            //graphics.DrawRectangle(new Pen(Brushes.Black), new Rectangle(18, height, 518, 55));
             graphics.DrawString("Cảm ơn bạn, chúc bạn một ngày vui vẻ và giúp shop đánh giá 5* nhé!", font, Brushes.Black, new Rectangle(0, height + 5, width, appendHeight), sf);
             List<string> stts = new List<string>();
             stts.Add("Anh có xô hay chậu gì không? Hứng hộ tình cảm của em dành cho anh đi ");

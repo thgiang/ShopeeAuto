@@ -113,7 +113,6 @@ namespace ShopeeAuto
                 }
 
             }
-
             // Add Parameters nếu có
             if(parameters != null)
             {
@@ -124,7 +123,14 @@ namespace ShopeeAuto
                         request.AddFile("file", File.ReadAllBytes(entry.Value), Path.GetFileName(entry.Value));
                     } else
                     {
-                        request.AddParameter(entry.Key, entry.Value);
+                        if(entry.Key == "json_body")
+                        {
+                            request.AddParameter("application/json;charset=UTF-8", entry.Value, ParameterType.RequestBody);
+                        } else
+                        {
+                            request.AddParameter(entry.Key, entry.Value);
+                        }
+                        
                     }
                 }
             }
