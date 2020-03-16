@@ -46,61 +46,70 @@ namespace ShopeeAuto
             string jobName = "checkorder";
             while (true)
             {
-                if (doneAllJob)
+                try
                 {
-                    if(jobName == "checkorder") { jobName = "listing";} else if(jobName == "listing") { jobName = "updating"; } else { jobName = "checkorder"; };
-                    Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
-                    Jobs.Clear(); /// Xoa sach job cu
+                    if (doneAllJob)
+                    {
+                        if (jobName == "checkorder") { jobName = "listing"; } else if (jobName == "listing") { jobName = "updating"; } else { jobName = "checkorder"; };
+                        Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
+                        Jobs.Clear(); /// Xoa sach job cu
 
-                    // Lấy sản phẩm cần list
-                    if(jobName == "listing") { 
-                        Dictionary<string, string> parameters = new Dictionary<string, string>
+                        // Lấy sản phẩm cần list
+                        if (jobName == "listing")
+                        {
+                            Dictionary<string, string> parameters = new Dictionary<string, string>
                         {
                             { "route", "product" },
                             { "action", "list" },
                             { "limit", "5" }
                         };
 
-                        ApiResult apiResult;
-                        apiResult = Global.api.RequestMyApi(parameters);
-                        if(!apiResult.success)
-                        {
-                            Global.AddLog("ERROR: Lỗi lấy job từ server");
-                            Thread.Sleep(5000);
-                            continue;
+                            ApiResult apiResult;
+                            apiResult = Global.api.RequestMyApi(parameters);
+                            if (!apiResult.success)
+                            {
+                                Global.AddLog("ERROR: Lỗi lấy job từ server");
+                                Thread.Sleep(5000);
+                                continue;
+                            }
+                            dynamic xx = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                            var dataArray = xx["data"];
+                            List<NSApiProduct.ProductList> requestResults = dataArray.ToObject<List<NSApiProduct.ProductList>>();
+                            foreach (NSApiProduct.ProductList element in requestResults)
+                            {
+                                Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
+                                QueueElement job = new QueueElement
+                                {
+                                    jobName = jobName,
+                                    jobStatus = "waiting",
+                                    jobData = element
+                                };
+                                Jobs.Add(job);
+                            }
                         }
-                        dynamic xx = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-                        var dataArray = xx["data"];
-                        List<NSApiProduct.ProductList> requestResults = dataArray.ToObject<List<NSApiProduct.ProductList>>();
-                        foreach (NSApiProduct.ProductList element in requestResults)
+                        else if (jobName == "updating")
                         {
-                            Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
+
+                        }
+                        else if (jobName == "checkorder")
+                        {
+                            Global.AddLog("Đã thêm vào hàng đợi job kiểm tra order mới");
                             QueueElement job = new QueueElement
                             {
                                 jobName = jobName,
                                 jobStatus = "waiting",
-                                jobData = element
+                                jobData = null
                             };
                             Jobs.Add(job);
                         }
+                        doneAllJob = false;
                     }
-                    else if (jobName == "updating")
-                    {
-
-                    } else if(jobName == "checkorder")
-                    {
-                        Global.AddLog("Đã thêm vào hàng đợi job kiểm tra order mới");
-                        QueueElement job = new QueueElement
-                        {
-                            jobName = jobName,
-                            jobStatus = "waiting",
-                            jobData = null
-                        };
-                        Jobs.Add(job);
-                    }
-                    doneAllJob = false;
+                    Thread.Sleep(2000);
+                } catch
+                {
+                    Thread.Sleep(2000);
+                    continue;
                 }
-                Thread.Sleep(2000);
             }
         }
 
@@ -109,41 +118,54 @@ namespace ShopeeAuto
         {
             #region Kiểm tra login
             bool isLoggedIn = false;
-            // Đăng nhập Shopee và lấy cookie
-            for (int i = 0; i < 3; i++)
-            {
-                isLoggedIn = Shopee.Login();
-                if (!isLoggedIn)
+            while (!isLoggedIn) {
+                try
                 {
-                    Global.AddLog("Đăng nhập thất bại lần thứ " + i.ToString());
-                    // TODO: Gọi lên server báo lỗi đăng nhập
-                    Thread.Sleep(30000);
+                    // Đăng nhập Shopee và lấy cookie
+                    for (int i = 0; i < 3; i++)
+                    {
+                        isLoggedIn = Shopee.Login();
+                        if (!isLoggedIn)
+                        {
+                            Global.AddLog("Đăng nhập thất bại lần thứ " + i.ToString());
+                            // TODO: Gọi lên server báo lỗi đăng nhập
+                            Thread.Sleep(30000);
+                            continue;
+                        }
+                        else
+                        {
+                            if (Shopee.GetShopId() == "")
+                            {
+                                Global.AddLog("ERROR: Không lấy đc giá trị shopId");
+                                // TODO: Gọi lên server báo lỗi đăng nhập
+                                Thread.Sleep(30000);
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                    // Nếu quá 3 lần mà vẫn login ko thành công thì dừng chương trình
+                    if (!isLoggedIn)
+                    {
+                        // TODO: GỬI REPORT LÊN SERVER
+                        Global.AddLog("Đăng nhập thất bại quá nhiều lần. Chương trình sẽ dừng để tránh bị block IP");
+                        MessageBox.Show("Đăng nhập thất bại quá nhiều lần. Chương trình sẽ dừng để tránh bị block IP");
+                        Application.Exit();
+                    }
+                   
+                }
+                catch (Exception e)
+                {
+                    Global.AddLog("ERROR: Lỗi khi đăng nhập " + e.Message);
+                    Thread.Sleep(2000);
                     continue;
                 }
-                else
-                {
-                    if(Shopee.GetShopId() == "")
-                    {
-                        Global.AddLog("ERROR: Không lấy đc giá trị shopId");
-                        // TODO: Gọi lên server báo lỗi đăng nhập
-                        Thread.Sleep(30000);
-                        continue;
-                    }
-                    break;
-                }
-            }
-            // Nếu quá 3 lần mà vẫn login ko thành công thì dừng chương trình
-            if (!isLoggedIn)
-            {
-                // TODO: GỬI REPORT LÊN SERVER
-                Global.AddLog("Đăng nhập thất bại quá nhiều lần. Chương trình sẽ dừng để tránh bị block IP");
-                MessageBox.Show("Đăng nhập thất bại quá nhiều lần. Chương trình sẽ dừng để tránh bị block IP");
-                Application.Exit();
             }
             #endregion
 
             while (true)
             {
+                try {
                 // BẮT ĐẦU CÔNG VIỆC CHÍNH
                 foreach (QueueElement job in Jobs.ToList())
                 {
@@ -328,6 +350,11 @@ namespace ShopeeAuto
                 }
                 doneAllJob = true;
                 Thread.Sleep(500);
+                } catch
+                {
+                    Thread.Sleep(1000);
+                    continue;
+                }
             }
             
         }

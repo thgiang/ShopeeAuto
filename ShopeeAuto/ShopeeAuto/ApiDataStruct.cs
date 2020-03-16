@@ -1039,7 +1039,7 @@ namespace NSClientInfo
         public string Id { get; set; }
 
         [JsonProperty("type")]
-        public TypeClass Type { get; set; }
+        public string Type { get; set; }
 
         [JsonProperty("shopee_username")]
         public string ShopeeUsername { get; set; }
@@ -1073,15 +1073,6 @@ namespace NSClientInfo
 
         [JsonProperty("client_name")]
         public string ClientName { get; set; }
-    }
-
-    public partial class TypeClass
-    {
-        [JsonProperty("label")]
-        public string Label { get; set; }
-
-        [JsonProperty("value")]
-        public string Value { get; set; }
     }
 }
 

@@ -20,6 +20,7 @@ namespace ShopeeAuto
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
         public static string myShopId = "";
+
         // Debug text area
         public static RichTextBox txtDebug;
 
@@ -62,7 +63,7 @@ namespace ShopeeAuto
             //  StartDriver
             foreach (var process in Process.GetProcessesByName("chrome"))
             {
-                process.Kill();
+               // process.Kill();
             }
 
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
@@ -75,10 +76,17 @@ namespace ShopeeAuto
             {
                 driver = new ChromeDriver(chromeDriverService, options);
                 wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
-            } catch
+                Dictionary<string, object> newparams = new Dictionary<string, object>();
+                IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
+
+            }
+            catch
             {
                 driver = new ChromeDriver(chromeDriverService, options);
                 wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+                IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
             }
         }
 

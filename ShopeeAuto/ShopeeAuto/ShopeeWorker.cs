@@ -497,6 +497,7 @@ namespace ShopeeAuto
             List<string> ignoreKeys = new List<string> {"", "甜美", "货号", "货号", "套头", "开口深度", "皮质特征", "通勤", "流行元素/工艺", "安全等级", "销售渠道类型"};
             List<string> ignoreValues = new List<string> {"", "甜美", "货号", "货号", "套头", "开口深度", "皮质特征", "其他", "其他/other", "other", "短裙" };
             List<string> notImportantWords = new List<string> { "建议" };
+            // 建议 : khuyến nghị, ước lượng, khoảng bao nhiêu kg... nói chung nó làm tên SKU bị dài, xóa
             // 甜美 ngọt ngào là cái qq gì @@ 
             // 安全等级 cấp độ bảo mật, vô nghĩa quá
             // 品牌 thương hiệu
@@ -556,10 +557,9 @@ namespace ShopeeAuto
 
 ★★★ CAM KẾT VÀ DỊCH VỤ
 - Sản phẩm đảm bảo chất lượng, chính xác 100% về thông số, mô tả và hình ảnh.
-- Sản phẩm được nhập khẩu trực tiếp từ Trung Quốc.
-- Thời gian giao hàng dự kiến: Trong vòng 12 ngày kể từ ngày đặt hàng (bao gồm 8 ngày từ TQ về VN và 3 ngày từ Hà Nội tới địa chỉ bất kì trên toàn quốc). Thông tin tracking được gửi tới Quý khách qua tin nhắn Shopee hàng ngày.
+- Thời gian giao hàng dự kiến: Trong vòng 10 ngày đối với sản phẩm order và 4 ngày đối với sản phẩm có sẵn. Thông tin vận chuyển được gửi tới Quý khách hàng ngày qua tin nhắn Shopee.
 - Hình thức thanh toán: COD toàn quốc.
-- Khách hàng đặt mua số lượng lớn vui lòng liên hệ trực tiếp để được giảm giá tới 20%.
+- Khách hàng đặt mua số lượng lớn vui lòng liên hệ trực tiếp để được giảm giá từ 5% đến 20%.
 ";
             desciption = Global.AntiDangStyle(desciption);
             return desciption;
@@ -764,6 +764,7 @@ namespace ShopeeAuto
                                 {
                                     { "route", "product/"+jobData.Id },
                                     { "source", "taobao" },
+                                    { "taobao_item_id", taobaoProductInfo.Data.Item.ItemId },
                                     { "shopee_item_id",  SuccessProductID},
                                     { "shopee_shop_id",  Global.myShopId},
                                     { "shopee_price",  postData.Price},
