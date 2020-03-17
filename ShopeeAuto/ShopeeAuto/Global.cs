@@ -21,6 +21,8 @@ namespace ShopeeAuto
 
         public static string myShopId = "";
 
+        public static string authToken = "";
+
         // Debug text area
         public static RichTextBox txtDebug;
 

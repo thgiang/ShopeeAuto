@@ -119,6 +119,18 @@ namespace ShopeeAuto
             return result;
         }
 
+        // Sinh ra captcha
+        public static string GenCaptcha(string text)
+        {
+            Random random = new Random();
+            Bitmap myBitmap = new Bitmap(300, 100);
+            Graphics g = Graphics.FromImage(myBitmap);            
+            g.DrawString(text, new Font("Arial", 40), Brushes.Black, new PointF(random.Next(20, 60), random.Next(15, 20)));
+            string path = Path.GetTempFileName();
+            myBitmap.Save(path);
+            return path;
+        }
+
         // Chụp ảnh toàn bộ trang web
         public static Image GetEntireScreenshot()
         {

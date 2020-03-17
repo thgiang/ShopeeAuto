@@ -103,6 +103,7 @@ namespace ShopeeAuto
             var client = new RestClient(url);
             var request = new RestRequest(method);
 
+            request.AddHeader("Authorization", Global.authToken);
             // Fake cookie nếu có
             if(cookies != null)
             {

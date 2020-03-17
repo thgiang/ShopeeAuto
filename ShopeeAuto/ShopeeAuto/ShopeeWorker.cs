@@ -41,8 +41,10 @@ namespace ShopeeAuto
                 NSClientInfo.ClientInfo client = JsonConvert.DeserializeObject<NSClientInfo.ClientInfo>(result.content);
                 minRevenue = int.Parse(client.Data.ShopeeMinRevenue.ToString());
                 maxRevenue = int.Parse(client.Data.ShopeeMaxRevenue.ToString());
-                username = client.Data.ShopeeUsername.ToString();
-                password = client.Data.ShopeePassword.ToString();
+                // username = client.Data.ShopeeUsername.ToString();
+                // password = client.Data.ShopeePassword.ToString();
+                username = "nhutam9045";
+                password = "Tapphelu@123627";
             }
             // Lỗi khi gọi lên server lấy username, pass
             else
@@ -232,8 +234,89 @@ namespace ShopeeAuto
             }
         }
 
+        public string PostImageToShopeeChat(string path)
+        {
+            ApiResult apiResult;
+            Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>
+            {
+                ["file"] = path
+            };
 
-       
+            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/webchat/api/v1/mini/images", Method.POST, shopeeCookie, parameters);
+            if (!apiResult.success)
+            {
+                return "";
+            }
+            dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+            if (results.message != "failed")
+            {
+                string url = results.url;
+                Global.AddLog("Đã đăng được ảnh lên shopeechat" + url);
+                return url;
+            }
+            else
+            {
+                Global.AddLog("Lỗi khi đăng ảnh lên shopeechat " + path);
+                return "";
+            }
+        }
+
+        public bool SendChatToShopee(string toId, string type, string value)
+        {
+            
+            Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+            /*
+            string data = "{\"content\":{\"text\":\""+value+"\"},\"to_id\":"+ toId + ",\"type\":\"text\",\"request_id\":\"4c8ec91f-b34a-4e09-bccb-" + unixTimestamp.ToString() + "\",\"created_timestamp\":" + unixTimestamp.ToString()+ ",\"source\":\"minichat\"}";
+            if(type == "image")
+            {
+                data = "{\"content\":{\"url\":\"" + value + "\"},\"to_id\":" + toId + ",\"type\":\"image\",\"request_id\":\"4c8ec91f-b34a-4e09-bccb-" + unixTimestamp.ToString() + "\",\"created_timestamp\":" + unixTimestamp.ToString() + ",\"source\":\"minichat\"}";
+
+            }
+            Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>();
+            dynamic dataaa = JsonConvert.DeserializeObject<dynamic>(data);
+            parameters.Add("text/plain;charset=UTF-8", JsonConvert.SerializeObject(data));
+            ApiResult apiResult;
+            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/webchat/api/v1.1/mini/messages", Method.POST, shopeeCookie, parameters);
+            if (apiResult.success)
+            {
+                return true;
+            } else
+            {
+                return false;
+            }
+            */
+
+            var client = new RestClient("https://banhang.shopee.vn/webchat/api/v1.1/mini/messages");
+            var request = new RestRequest(Method.POST);
+            request.AddHeader("cache-control", "no-cache");
+            //request.AddHeader("cookie", "SPC_T_F=1; SC_DFP=Ln1jb2gFOYxaQt8zvBCbu1SqoEHNS1qf; _gcl_au=1.1.192251032.1582786029; REC_T_ID=f9fd9265-592c-11ea-9f40-60fa9dd46e5a; _fbp=fb.1.1582786029359.928987906; _ga=GA1.2.1303289113.1582786030; _hjid=2da5ba9c-65de-4e2d-ba78-f63aa9ab23ad; _ga=GA1.3.1303289113.1582786030; SPC_SC_TK=b9e7c9d390f2c06867d8a805060842a5; SPC_EC=\"AgIIpu1PcJ3P4TuBEF0Hebthigj67ntZsW36/oCvMmhH+0Jf76rOBiz8zeNpGnEOcIRSmHLJ3D1sy9y0xgFLrfRJ2D+dTk0NnVVM3rJsV1RiOSKIfk4CXVTfZAYer0FevH2ZACDw42Qf3XtVJW5bvUquzLOCkWLnAlILptR86rE=\"; SPC_SC_UD=230797778; SPC_U=230797778; SPC_R_T_ID=\"kzf9XSar1PwsIis75AKTaimmQZo2daTpgsqE00yvMqnLNqsdsjGdOXTXD5pYM/QHUf1WrUiibDKu2wraPhLmrtw5bjkbLajyTEwmvB9bkPo=\"; SPC_R_T_IV=\"q280nqEgMwfkYGVtyPFHYw==\"; _gid=GA1.3.393514851.1584387048; _gid=GA1.2.393514851.1584387048; CTOKEN=hwttL2foEeqV0cy7%2Fl3%2FyA%3D%3D; SPC_T_IV=\"vRjo7STE97u+SZZqKPZUeg==\"; SPC_CDS=53a9084c-9fa7-455b-aa9d-acd0133df77c; SPC_T_ID=\"YBWZ0gm43ni6sxZMLTvKO0+uhKNgXcFOuMrcX11exztp0CbMUHH+dh3Az1BAKlIKDr+xzIIEZS2ZBUwPGETfVmscy3sAqyOmB9ScK7E8ERY=\"");
+            foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
+            {
+                request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
+                request.AddCookie("SPC_CDS", "GICUNGDUOC");
+            }
+            request.AddHeader("accept-language", "en-US,en;q=0.9");
+            request.AddHeader("referer", "https://banhang.shopee.vn/");
+            request.AddHeader("sec-fetch-mode", "cors");
+            request.AddHeader("sec-fetch-site", "same-origin");
+            request.AddHeader("accept", "*/*");
+            request.AddHeader("content-type", "text/plain;charset=UTF-8");
+            request.AddHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36");
+            request.AddHeader("sec-fetch-dest", "empty");
+            request.AddHeader("origin", "https://banhang.shopee.vn");
+            request.AddHeader("authorization", Global.authToken);
+            request.AddHeader("connection", "keep-alive");
+            if(type == "image")
+            {
+                request.AddParameter("text/plain;charset=UTF-8", "{\"content\":{\"url\":\""+value+"\"},\"to_id\":" + toId + ",\"type\":\"image\",\"request_id\":\"fed34d00-35b4-4fb4-a2d8-" + unixTimestamp.ToString() + "\",\"created_timestamp\":" + unixTimestamp.ToString() + ",\"source\":\"minichat\"}", ParameterType.RequestBody);
+            } else
+            {
+                request.AddParameter("text/plain;charset=UTF-8", "{\"content\":{\"text\":\""+value+"\"},\"to_id\":" + toId + ",\"type\":\"text\",\"request_id\":\"fed34d00-35b4-4fb4-a2d8-" + unixTimestamp.ToString() + "\",\"created_timestamp\":" + unixTimestamp.ToString() + ",\"source\":\"minichat\"}", ParameterType.RequestBody);
+
+            }
+            IRestResponse response = client.Execute(request);
+            return true;
+        }
         public class PrepareTaobaoData
         {
             public List<string> generalImgs = new List<string>();
@@ -847,19 +930,16 @@ namespace ShopeeAuto
                     case 5: // Bị hủy
                         break;
                     case 1:
-                        /*
-                        //Đoạn này để test, lấy lại hóa đơn vận đơn cũ.
-                        Global.AddLog(order.OrderId + ". Chạy vào đây nè");
-
-                        ApiResult apiResult2;
-                        apiResult2 = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/get_drop_off/?order_id=" + order.OrderId, Method.GET, shopeeCookie);
+                        // TESTTTTT Đoạn này để test, lấy lại hóa đơn vận đơn cũ.
+                         ApiResult apiResulttest;
+                        apiResulttest = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/get_drop_off/?order_id="+order.OrderId, Method.GET, shopeeCookie);
                         if (apiResult.success)
                         {
-                            dynamic results2 = JsonConvert.DeserializeObject<dynamic>(apiResult2.content);
+                            dynamic results2 = JsonConvert.DeserializeObject<dynamic>(apiResulttest.content);
                             if (results2.data != null && results2.data.consignment_no != null && results2.data.consignment_no != "")
                             {
                                 order.MaVanDon = results2.data.consignment_no;
-                                Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: " + order.MaVanDon);
+                                Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: "+ order.MaVanDon);
 
                                 // Chụp ảnh hóa đơn
                                 Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
@@ -874,13 +954,51 @@ namespace ShopeeAuto
                                 {
 
                                 }
-                                // Đã có mã vận đơn và chụp ảnh xong nên break thôi
+                                Global.AddLog("OrderID: " + order.OrderId + ". Đã lấy xong mã vận đơn và lưu ảnh");
+
+                                // GỬI TIN NHẮN YÊU CẦU KHÁCH XÁC NHẬN ĐƠN
+                                Random random = new Random();
+                                int randomBetween1000And9999 = random.Next(100000, 999999);
+                                string captchaFile = Helper.GenCaptcha(randomBetween1000And9999.ToString());
+                                string url = PostImageToShopeeChat(captchaFile);
+                                if (url == "")
+                                {
+                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Cảm ơn Quý khách đã đặt hàng. Quý khách vui lòng trả lời tin nhắn với nội dung \"" + randomBetween1000And9999 + "\" để xác nhận đơn hàng. Trân trọng cảm ơn!");
+                                }
+                                else
+                                {
+                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "image", url);
+                                    Thread.Sleep(500);
+                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Cảm ơn Quý khách đã đặt hàng. Quý khách vui lòng trả lời tin nhắn với nội dung là số được ghi trong ảnh để xác nhận đơn hàng. Trân trọng cảm ơn!");
+                                }
+
+
+                                // BẮN ĐƠN LÊN SERVER
+                                ApiResult apiResult3;
+                                Dictionary<string, string> parameters3 = new Dictionary<string, string>
+                                {
+                                    ["route"] = "order",
+                                    ["market"] = "SHOPEE",
+                                    ["captcha"] = randomBetween1000And9999.ToString(),
+                                    ["checkout_id"] = order.OrderId.ToString(),
+                                    ["data"] = JsonConvert.SerializeObject(order)
+                                };
+
+                                apiResult3 = Global.api.RequestMyApi(parameters3, Method.POST);
+                                if (apiResult3.success)
+                                {
+                                    dynamic bloblah = JsonConvert.DeserializeObject<dynamic>(apiResult3.content);
+                                    Global.AddLog(order.OrderId + ". Đã bắn thông tin order lên server");
+                                }
+                                else
+                                {
+                                    Global.AddLog("ERROR: Lỗi khi bắn order lên server "+ order.OrderId);
+                                } 
                                 break;
                             }
                         }
 
-                         */
-
+                        /// HẾT TEST
 
                         // order.LogisticsStatus == 1 là đã add thông tin vận chuyển. Ko cần làm gì nữa
                         // = 9 cần add thoongtin vận chuyển
@@ -925,7 +1043,44 @@ namespace ShopeeAuto
 
                                                 }
                                                 Global.AddLog("OrderID: " + order.OrderId + ". Đã lấy xong mã vận đơn và lưu ảnh ở lần thứ " + x);
-                                                // Đã có mã vận đơn và chụp ảnh xong nên break thôi
+
+                                                // GỬI TIN NHẮN YÊU CẦU KHÁCH XÁC NHẬN ĐƠN
+                                                Random random = new Random();
+                                                int randomBetween1000And9999 = random.Next(1000, 9999);
+                                                string captchaFile = Helper.GenCaptcha(randomBetween1000And9999.ToString());
+                                                string url = PostImageToShopeeChat(captchaFile);
+                                                if(url != "")
+                                                {
+                                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Chào bạn, mình thấy bạn đặt hàng trên này hơi ít vì vậy bạn vui lòng chat lại số "+ randomBetween1000And9999 + " để xác nhận bạn không bấm nhầm nhé. Cảm ơn bạn!");
+                                                } else
+                                                {
+                                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "image", url);
+                                                    Thread.Sleep(500);
+                                                    SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Chào bạn, mình thấy bạn đặt hàng trên này hơi ít vì vậy bạn vui lòng chat lại các số được ghi trên ảnh để xác nhận bạn không bấm nhầm nhé. Cảm ơn bạn!");
+                                                }
+                                                 
+
+                                                // BẮN ĐƠN LÊN SERVER
+                                                ApiResult apiResult3;
+                                                Dictionary<string, string> parameters3 = new Dictionary<string, string>
+                                                {
+                                                    ["route"] = "order",
+                                                    ["market"] = "SHOPEE",
+                                                    ["captcha"] = randomBetween1000And9999.ToString(),
+                                                    ["checkout_id"] = order.OrderId.ToString(),
+                                                    ["data"] = JsonConvert.SerializeObject(order)
+                                                };
+
+                                                apiResult3 = Global.api.RequestMyApi(parameters3, Method.POST);
+                                                if (apiResult3.success)
+                                                {
+                                                    dynamic bloblah = JsonConvert.DeserializeObject<dynamic>(apiResult3.content);
+                                                    Global.AddLog(order.OrderId + ". Đã bắn thông tin order lên server");
+                                                }
+                                                else
+                                                {
+                                                    Global.AddLog("ERROR: Lỗi khi bắn order lên server "+ order.OrderId);
+                                                } 
                                                 break;
                                             }
                                         }

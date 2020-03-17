@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NLog;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
@@ -160,7 +159,26 @@ namespace ShopeeAuto
                     Thread.Sleep(2000);
                     continue;
                 }
+                if (isLoggedIn)
+                {
+                    try
+                    {
+                        IWebElement elementName = Global.driver.FindElement(By.Id("auth_content"));
+                        if (elementName != null)
+                        {
+                            Global.authToken = elementName.Text;
+                            Global.AddLog("Auth token = " + Global.authToken);
+                        }
+                    }
+                    catch
+                    {
+                        Global.AddLog("ERROR: Lỗi ko lấy đc Auth Token");
+                        isLoggedIn = false;
+                        continue;
+                    }
+                }
             }
+           
             #endregion
 
             while (true)
