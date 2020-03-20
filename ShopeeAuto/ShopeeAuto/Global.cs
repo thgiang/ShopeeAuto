@@ -17,9 +17,13 @@ namespace ShopeeAuto
 {
     public static class Global
     {
+        public static bool DebugMode = false;
+
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
         public static string myShopId = "";
+
+        public static string myAccountId = "";
 
         public static string authToken = "";
 
@@ -103,16 +107,21 @@ namespace ShopeeAuto
             }
    
             str = str.Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(" .", ". ").Replace("đẹpk", "đẹp").Replace("đepk", "đẹp");
+            str = str.Trim();
+            str = str.TrimEnd(',');
+            str = str.Trim();
+            str = str.TrimEnd(',');
             return str;
         }
 
-        public static string Translate(string str)
+        public static string Translate(string str, int save = 1)
         {
             ApiResult apiResult;
             Dictionary<string, string> parameters = new Dictionary<string, string>
             {
                 ["route"] = "translate/ahihi",
                 ["text"] = str,
+                ["save"] = save.ToString(), // Dich va luu hay ko, 1 la co luu, 0 la dich ko luu
             };
             apiResult = Global.api.RequestMyApi(parameters);
             if (apiResult.success)

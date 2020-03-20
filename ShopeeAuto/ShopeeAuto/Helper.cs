@@ -124,8 +124,15 @@ namespace ShopeeAuto
         {
             Random random = new Random();
             Bitmap myBitmap = new Bitmap(300, 100);
-            Graphics g = Graphics.FromImage(myBitmap);            
-            g.DrawString(text, new Font("Arial", 40), Brushes.Black, new PointF(random.Next(20, 60), random.Next(15, 20)));
+            Graphics g = Graphics.FromImage(myBitmap);
+            char[] chars = text.ToCharArray();
+            int i = 0;
+            foreach(char c in chars)
+            {
+                g.DrawString(c.ToString(), new Font("Segoe Script", random.Next(25, 35)), Brushes.Black, new PointF(55 + i * 27, random.Next(10, 20)));
+                i++;
+            }
+           
             string path = Path.GetTempFileName();
             myBitmap.Save(path);
             return path;
@@ -211,6 +218,15 @@ namespace ShopeeAuto
                 screenshotImage = Image.FromStream(memStream);
             }
             return screenshotImage;
+        }
+
+        public static string LowerFisrtLetter(string s)
+        {
+            if (s != string.Empty && char.IsUpper(s[0]))
+            {
+                s = char.ToLower(s[0]) + s.Substring(1);
+            }
+            return s;
         }
     }
 }

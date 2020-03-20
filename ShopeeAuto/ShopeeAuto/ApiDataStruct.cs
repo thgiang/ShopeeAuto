@@ -361,9 +361,51 @@ namespace NSTaobaoProduct
     #endregion    
 }
 
-namespace NSApiProduct
+namespace NSApiProducts
 {
-    public partial class ProductList
+    public partial class NsApiProducts
+    {
+        [JsonProperty("status")]
+        public string Status { get; set; }
+
+        [JsonProperty("current_page")]
+        public long CurrentPage { get; set; }
+
+        [JsonProperty("data")]
+        public List<NsApiProduct> Data { get; set; }
+
+        [JsonProperty("first_page_url")]
+        public Uri FirstPageUrl { get; set; }
+
+        [JsonProperty("from")]
+        public long From { get; set; }
+
+        [JsonProperty("last_page")]
+        public long LastPage { get; set; }
+
+        [JsonProperty("last_page_url")]
+        public Uri LastPageUrl { get; set; }
+
+        [JsonProperty("next_page_url")]
+        public Uri NextPageUrl { get; set; }
+
+        [JsonProperty("path")]
+        public Uri Path { get; set; }
+
+        [JsonProperty("per_page")]
+        public long PerPage { get; set; }
+
+        [JsonProperty("prev_page_url")]
+        public object PrevPageUrl { get; set; }
+
+        [JsonProperty("to")]
+        public long To { get; set; }
+
+        [JsonProperty("total")]
+        public long Total { get; set; }
+    }
+
+    public partial class NsApiProduct
     {
         [JsonProperty("_id")]
         public string Id { get; set; }
@@ -380,38 +422,26 @@ namespace NSApiProduct
         [JsonProperty("company_id")]
         public string CompanyId { get; set; }
 
-        [JsonProperty("tactic")]
-        public Tactic Tactic { get; set; }
-
         [JsonProperty("shops")]
         public List<Shop> Shops { get; set; }
-
-        [JsonProperty("original_product")]
-        public string OriginalProduct { get; set; }
-
-        [JsonProperty("rival_product")]
-        public string RivalProduct { get; set; }
-
-        [JsonProperty("selling_product")]
-        public string SeliingProduct { get; set; }
 
         [JsonProperty("updated_at")]
         public DateTimeOffset UpdatedAt { get; set; }
 
         [JsonProperty("created_at")]
         public DateTimeOffset CreatedAt { get; set; }
-    }
 
-    public partial class Tactic
-    {
-        [JsonProperty("label")]
-        public string Label { get; set; }
+        [JsonProperty("tactic")]
+        public Tactic Tactic { get; set; }
 
-        [JsonProperty("source")]
-        public string Source { get; set; }
+        [JsonProperty("original_product")]
+        public Uri OriginalProduct { get; set; }
 
-        [JsonProperty("value")]
-        public int Value { get; set; }
+        [JsonProperty("rival_product")]
+        public Uri RivalProduct { get; set; }
+
+        [JsonProperty("selling_products")]
+        public List<Uri> SellingProducts { get; set; }
     }
 
     public partial class ShopeeId
@@ -431,17 +461,44 @@ namespace NSApiProduct
         [JsonProperty("is_primary")]
         public bool IsPrimary { get; set; }
 
-        [JsonProperty("client_id")]
-        public string ClientId { get; set; }
-
         [JsonProperty("price")]
-        public long Price { get; set; }
+        public string Price { get; set; }
 
         [JsonProperty("shopee_item_id")]
         public string ShopeeItemId { get; set; }
 
         [JsonProperty("shopee_shop_id")]
         public string ShopeeShopId { get; set; }
+
+        [JsonProperty("shopee_model_list")]
+        public dynamic ShopeeModelList { get; set; }
+
+        [JsonProperty("tabao_skubase")]
+        public dynamic TaobaoSkuBase { get; set; }
+
+        [JsonProperty("shopee_price")]
+        public string ShopeePrice { get; set; }
+
+        [JsonProperty("last_update_unix_time")]
+        public long LastUpdateUnixTime { get; set; }
+
+        [JsonProperty("last_update_humman_time")]
+        public DateTimeOffset LastUpdateHummanTime { get; set; }
+
+        [JsonProperty("account_id")]
+        public string AccountId { get; set; }
+    }
+
+    public partial class Tactic
+    {
+        [JsonProperty("label")]
+        public string Label { get; set; }
+
+        [JsonProperty("source")]
+        public string Source { get; set; }
+
+        [JsonProperty("value")]
+        public long Value { get; set; }
     }
 
     public partial class TaobaoId
@@ -1679,7 +1736,8 @@ namespace NSShopeeOrders
 
     public partial class Order
     {
-        public string MaVanDon { get; set; } // Cái này ko có trỏng JSON trả về, tự add tay vào thoy
+        public string MVD { get; set; } // Cái này ko có trong JSON trả về, tự add tay vào thoy
+        public string MVDImage { get; set; } // Cái này ko có trong JSON trả về, tự add tay vào thoy
 
         [JsonProperty("comm_fee")]
         public string CommFee { get; set; }

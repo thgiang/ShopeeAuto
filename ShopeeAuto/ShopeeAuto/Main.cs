@@ -21,6 +21,7 @@ namespace ShopeeAuto
 {
     public partial class Main : Form
     {
+
         // ShopeeWorker
         private ShopeeWorker Shopee;
 
@@ -45,6 +46,12 @@ namespace ShopeeAuto
             string jobName = "checkorder";
             while (true)
             {
+                if(Global.myAccountId == "")
+                {
+                    Global.AddLog("Đang chờ thông tin username, password");
+                    Thread.Sleep(1000);
+                    continue;
+                }
                 try
                 {
                     if (doneAllJob)
@@ -53,15 +60,17 @@ namespace ShopeeAuto
                         Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
                         Jobs.Clear(); /// Xoa sach job cu
 
+                        Global.AddLog("JOBNAME: "+jobName);
                         // Lấy sản phẩm cần list
                         if (jobName == "listing")
                         {
                             Dictionary<string, string> parameters = new Dictionary<string, string>
-                        {
-                            { "route", "product" },
-                            { "action", "list" },
-                            { "limit", "5" }
-                        };
+                            {
+                                { "route", "product" },
+                                { "action", "list" },
+                                { "per_page", "5" },
+                                {"account_id", Global.myAccountId },
+                            };
 
                             ApiResult apiResult;
                             apiResult = Global.api.RequestMyApi(parameters);
@@ -71,10 +80,10 @@ namespace ShopeeAuto
                                 Thread.Sleep(5000);
                                 continue;
                             }
-                            dynamic xx = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-                            var dataArray = xx["data"];
-                            List<NSApiProduct.ProductList> requestResults = dataArray.ToObject<List<NSApiProduct.ProductList>>();
-                            foreach (NSApiProduct.ProductList element in requestResults)
+                            NSApiProducts.NsApiProducts result = JsonConvert.DeserializeObject<NSApiProducts.NsApiProducts>(apiResult.content);
+                            List<NSApiProducts.NsApiProduct> requestResults = result.Data;
+
+                            foreach (NSApiProducts.NsApiProduct element in requestResults)
                             {
                                 Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
                                 QueueElement job = new QueueElement
@@ -104,10 +113,17 @@ namespace ShopeeAuto
                         doneAllJob = false;
                     }
                     Thread.Sleep(2000);
-                } catch
+                } catch (Exception e)
                 {
-                    Thread.Sleep(2000);
-                    continue;
+                    if(Global.DebugMode)
+                    {
+                        MessageBox.Show("Lỗi khi thực hiện job "+e.Message);
+                    } else
+                    {
+                        Thread.Sleep(2000);
+                        continue;
+                    }
+                    
                 }
             }
         }
@@ -194,10 +210,10 @@ namespace ShopeeAuto
                         if (job.jobName == "listing")
                         {
                             // TẠM ĐẶT NHƯ NÀY ĐỂ TEST THÔI, CHUYỂN SANG VIỆC KHÁC
-                            job.jobStatus = "done";
-                            continue;
+                            //job.jobStatus = "done";
+                           // continue;
 
-                            NSApiProduct.ProductList jobData = job.jobData;
+                            NSApiProducts.NsApiProduct jobData = job.jobData;
                             Global.AddLog("Đang làm việc trên job " + jobData.Id);
                             #region Tìm sản phẩm rẻ nhất taobao ở taobao
                             // Kiểm tra xem mình có phải shop phụ trách chính ko. Nếu đúng thì phải scan tất cả các taobaos, nếu ko thì chỉ  cần làm đúng công việc của mình là scan cái thằng is_the_best
@@ -208,7 +224,7 @@ namespace ShopeeAuto
                             {
                                 Global.AddLog("Đang tìm thằng taobao nào bán rẻ nhất");
                                 // Nếu là primary thì phải scan lại tất cả taobaos để xem bây giờ thằng nào đang rẻ nhất.
-                                foreach (NSApiProduct.TaobaoId taobaoIdObj in jobData.TaobaoIds)
+                                foreach (NSApiProducts.TaobaoId taobaoIdObj in jobData.TaobaoIds)
                                 {
                                     Global.AddLog("Quét qua taobaoId " + taobaoIdObj.ItemId);
                                     ApiResult apiResult;
@@ -279,7 +295,7 @@ namespace ShopeeAuto
                             else
                             {
                                 // Nếu ko phải primay thì cứ lấy thằng isTheBest
-                                foreach (NSApiProduct.TaobaoId taobaoIdObj in jobData.TaobaoIds)
+                                foreach (NSApiProducts.TaobaoId taobaoIdObj in jobData.TaobaoIds)
                                 {
                                     if (taobaoIdObj.IsTheBest)
                                     {
@@ -368,10 +384,17 @@ namespace ShopeeAuto
                 }
                 doneAllJob = true;
                 Thread.Sleep(500);
-                } catch
+                } catch (Exception e)
                 {
-                    Thread.Sleep(1000);
-                    continue;
+                    if (Global.DebugMode)
+                    {
+                        MessageBox.Show("Lỗiiiiiii khi thực hiện job " + e.Message + " " +e.StackTrace );
+                    }
+                    else
+                    {
+                        Thread.Sleep(1000);
+                        continue;
+                    }
                 }
             }
             
@@ -380,6 +403,10 @@ namespace ShopeeAuto
 
         private void Main_Load(object sender, EventArgs e)
         {
+
+            //string path = Helper.GenCaptcha("123456");
+            //txtDebug.Text = path;
+            //return;
             // Cho txtDebug làm biến Global
             Global.txtDebug = this.txtDebug;
 
@@ -426,5 +453,31 @@ namespace ShopeeAuto
             // scroll it automatically
             txtDebug.ScrollToCaret();
         }
+
+        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN)
+            {
+                int vkCode = Marshal.ReadInt32(lParam);
+                Console.WriteLine((Keys)vkCode);
+            }
+
+            return CallNextHookEx(_hookID, nCode, wParam, lParam);
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
     }
 }

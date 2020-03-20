@@ -36,21 +36,19 @@
             // 
             this.txtDebug.Dock = System.Windows.Forms.DockStyle.Fill;
             this.txtDebug.Location = new System.Drawing.Point(0, 0);
-            this.txtDebug.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.txtDebug.Name = "txtDebug";
-            this.txtDebug.Size = new System.Drawing.Size(724, 566);
+            this.txtDebug.Size = new System.Drawing.Size(543, 460);
             this.txtDebug.TabIndex = 0;
             this.txtDebug.Text = "";
             this.txtDebug.TextChanged += new System.EventHandler(this.txtDebug_TextChanged);
             // 
             // Main
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(724, 566);
+            this.ClientSize = new System.Drawing.Size(543, 460);
             this.Controls.Add(this.txtDebug);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.Name = "Main";
             this.Text = "Main";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Main_FormClosed);

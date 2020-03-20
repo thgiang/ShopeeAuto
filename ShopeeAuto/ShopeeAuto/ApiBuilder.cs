@@ -35,6 +35,40 @@ namespace ShopeeAuto
         }
 
  
+        public string UploadImageToMyServer(string filePath)
+        {
+            var client = new RestClient(apiUrl+"upload_image");
+            var request = new RestRequest(Method.POST);
+            request.AddHeader("content-type", "multipart/form-data");
+            request.AddParameter("access_token", accessToken);
+            request.AddFile("image", File.ReadAllBytes(filePath), Path.GetFileName(filePath));
+            IRestResponse response;
+            int requestTime = 1;
+            do
+            {
+                try
+                {
+                    // Send request now
+                    response = client.Execute(request);
+                    dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
+                    if(results.url != null && results.url != "")
+                    {
+                        Global.AddLog("Upload ảnh " + filePath + " thành công");
+                        return results.url;
+                    }  
+                }
+                catch
+                {
+                    Global.AddLog("Up ảnh bị lỗi lần " + (requestTime - 1).ToString());
+                    requestTime++;
+                    Thread.Sleep(1000);
+                }
+            } while (requestTime < 3);
+
+            // Return result
+            return "";
+        }
+
         public ApiResult RequestMyApi(IDictionary<string, string> parameters, Method method = Method.GET)
         {
             ApiResult result = new ApiResult();
@@ -104,6 +138,7 @@ namespace ShopeeAuto
             var request = new RestRequest(method);
 
             request.AddHeader("Authorization", Global.authToken);
+            request.AddHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36");
             // Fake cookie nếu có
             if(cookies != null)
             {
