@@ -34,55 +34,47 @@ namespace ShopeeAuto
         public static ApiBuilder api = new ApiBuilder();
 
         // Chrome driver
-        public static IWebDriver driver;
+        public static ChromeDriver driver;
         public static WebDriverWait wait;
 
         public static void Init()
         {
-            /*
-            // Init Dictionary
-            myDictionary.Add("colour", "Màu");
-            myDictionary.Add("size", "Size");
-            myDictionary.Add("黑色", "Đen");
-            myDictionary.Add("浅粉色", "Hồng nhạt");
-            myDictionary.Add("深粉色", "Hồng đậm");
-            myDictionary.Add("黄色", "Vàng");
-            myDictionary.Add("红色", "Đỏ");
-            myDictionary.Add("藏蓝", "Xanh tím than");
-            myDictionary.Add("宝蓝", "Xanh nước biển");
-            myDictionary.Add("白色", "Trắng");
-            myDictionary.Add("斤", " x 0.5kg");
-
-            myDictionary.Add("xs", "XS");
-            myDictionary.Add("s", "S");
-            myDictionary.Add("l", "L");
-            myDictionary.Add("m", "M");
-            myDictionary.Add("xl", "XL");
-            myDictionary.Add("xxl", "XXL");
-            myDictionary.Add("xxXl", "XXXL");
-            myDictionary.Add("2xl", "2XL");
-            myDictionary.Add("3xl", "3XL");
-            myDictionary.Add("4xl", "4XL");
-            myDictionary.Add("5xl", "5XL");
-            */
 
             //  StartDriver
-            foreach (var process in Process.GetProcessesByName("chrome"))
+            foreach (var processChrome in Process.GetProcessesByName("chrome"))
             {
-               // process.Kill();
+                // processChrome.Kill();
             }
 
+            /*
+            Random rd = new Random();
+            //string portremote = rd.Next(6666, 9999).ToString();
+            string portremote = "9981";
+            Process process = new Process();
+            process.StartInfo.UseShellExecute = true;
+            process.StartInfo.FileName = "chrome";
+            process.StartInfo.Arguments = "https://banhang.shopee.vn --disable-gpu --new-window --remote-debugging-port=" + portremote; //--window-position=0,0 --new-window --window-size=1200,800        
+            //process.EnableRaisingEvents = true;
+            //process.Exited += new EventHandler(myProcess_Exited);
+            process.Start();
+           
+            var options = new ChromeOptions { DebuggerAddress = "localhost:" + portremote };
+            //options.AddArguments("--disable-infobars");
+            options.AddArgument("load-extension=C:\\Users\\Admin\\Desktop\\choom_shopee_header");
+            ChromeDriverService chromeDriverService = ChromeDriverService.CreateDefaultService();
+            //chromeDriverService.HideCommandPromptWindow = true;
+           */
             var chromeDriverService = ChromeDriverService.CreateDefaultService();
             chromeDriverService.HideCommandPromptWindow = true;
             ChromeOptions options = new ChromeOptions();
             options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
             options.AddArguments("profile-directory=Profile 1");
             options.AddArguments("start-maximized");
+
             try
             {
                 driver = new ChromeDriver(chromeDriverService, options);
-                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
-                Dictionary<string, object> newparams = new Dictionary<string, object>();
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
                 IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
                 js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
 
@@ -90,10 +82,11 @@ namespace ShopeeAuto
             catch
             {
                 driver = new ChromeDriver(chromeDriverService, options);
-                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
                 IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
                 js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
             }
+            
         }
 
         public static string AntiDangStyle(string str)
@@ -114,14 +107,13 @@ namespace ShopeeAuto
             return str;
         }
 
-        public static string Translate(string str, int save = 1)
+        public static string Translate(string str)
         {
             ApiResult apiResult;
             Dictionary<string, string> parameters = new Dictionary<string, string>
             {
                 ["route"] = "translate/ahihi",
                 ["text"] = str,
-                ["save"] = save.ToString(), // Dich va luu hay ko, 1 la co luu, 0 la dich ko luu
             };
             apiResult = Global.api.RequestMyApi(parameters);
             if (apiResult.success)

@@ -1778,6 +1778,9 @@ namespace NSShopeeOrders
         [JsonProperty("checkout_id")]
         public string CheckoutId { get; set; }
 
+        [JsonProperty("market")] // Tự viết thêm
+        public string Market { get; set; }
+
         [JsonProperty("voucher_code")]
         public string VoucherCode { get; set; }
 
