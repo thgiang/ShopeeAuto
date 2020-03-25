@@ -15,6 +15,7 @@ using Newtonsoft.Json.Serialization;
 using System.Windows.Forms;
 using System.Drawing;
 using Keys = OpenQA.Selenium.Keys;
+using System.Collections.ObjectModel;
 
 namespace ShopeeAuto
 {
@@ -22,12 +23,13 @@ namespace ShopeeAuto
     {
         List<string> notImportantWords = new List<string> { "建议", "【", "】", "清仓", "元"};
         private Helper helper = new Helper();
-        private dynamic shopeeCookie;
+        private ReadOnlyCollection<OpenQA.Selenium.Cookie> shopeeCookie;
+        private string SPC_CDS = "GI_CUNG_DUOC";
+        private int minRevenueInMoney = 30000;
         private int minRevenue = 20;
         private int maxRevenue = 50;
         private string username;
         private string password;
-
         public bool Login()
         {
             ApiResult result;
@@ -72,6 +74,13 @@ namespace ShopeeAuto
                     {
                         Global.AddLog("Đăng nhập thành côngggg");
                         shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+                        foreach(var x in shopeeCookie)
+                        {
+                            if(x.Name == "SPC_CDS")
+                            {
+                                SPC_CDS = x.Value;
+                            }
+                        }
                         return true;
                     }
                 }
@@ -182,7 +191,7 @@ namespace ShopeeAuto
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
             {
                 request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
-                request.AddCookie("SPC_CDS", "GICUNGDUOC");
+                request.AddCookie("SPC_CDS", SPC_CDS);
             }
         }
 
@@ -251,7 +260,7 @@ namespace ShopeeAuto
                 ["file"] = path
             };
 
-            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/general/upload_image/?SPC_CDS=8c777714-50b7-4017-82bd-3a5141424b85&SPC_CDS_VER=2", Method.POST, shopeeCookie, parameters);
+            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/general/upload_image/?SPC_CDS="+ SPC_CDS + "&SPC_CDS_VER=2", Method.POST, shopeeCookie, parameters);
             if (!apiResult.success)
             {
                 return "";
@@ -324,11 +333,9 @@ namespace ShopeeAuto
             var client = new RestClient("https://banhang.shopee.vn/webchat/api/v1.1/mini/messages");
             var request = new RestRequest(Method.POST);
             request.AddHeader("cache-control", "no-cache");
-            //request.AddHeader("cookie", "SPC_T_F=1; SC_DFP=Ln1jb2gFOYxaQt8zvBCbu1SqoEHNS1qf; _gcl_au=1.1.192251032.1582786029; REC_T_ID=f9fd9265-592c-11ea-9f40-60fa9dd46e5a; _fbp=fb.1.1582786029359.928987906; _ga=GA1.2.1303289113.1582786030; _hjid=2da5ba9c-65de-4e2d-ba78-f63aa9ab23ad; _ga=GA1.3.1303289113.1582786030; SPC_SC_TK=b9e7c9d390f2c06867d8a805060842a5; SPC_EC=\"AgIIpu1PcJ3P4TuBEF0Hebthigj67ntZsW36/oCvMmhH+0Jf76rOBiz8zeNpGnEOcIRSmHLJ3D1sy9y0xgFLrfRJ2D+dTk0NnVVM3rJsV1RiOSKIfk4CXVTfZAYer0FevH2ZACDw42Qf3XtVJW5bvUquzLOCkWLnAlILptR86rE=\"; SPC_SC_UD=230797778; SPC_U=230797778; SPC_R_T_ID=\"kzf9XSar1PwsIis75AKTaimmQZo2daTpgsqE00yvMqnLNqsdsjGdOXTXD5pYM/QHUf1WrUiibDKu2wraPhLmrtw5bjkbLajyTEwmvB9bkPo=\"; SPC_R_T_IV=\"q280nqEgMwfkYGVtyPFHYw==\"; _gid=GA1.3.393514851.1584387048; _gid=GA1.2.393514851.1584387048; CTOKEN=hwttL2foEeqV0cy7%2Fl3%2FyA%3D%3D; SPC_T_IV=\"vRjo7STE97u+SZZqKPZUeg==\"; SPC_CDS=53a9084c-9fa7-455b-aa9d-acd0133df77c; SPC_T_ID=\"YBWZ0gm43ni6sxZMLTvKO0+uhKNgXcFOuMrcX11exztp0CbMUHH+dh3Az1BAKlIKDr+xzIIEZS2ZBUwPGETfVmscy3sAqyOmB9ScK7E8ERY=\"");
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
             {
                 request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
-                request.AddCookie("SPC_CDS", "GICUNGDUOC");
             }
             request.AddHeader("accept-language", "en-US,en;q=0.9");
             request.AddHeader("referer", "https://banhang.shopee.vn/");
@@ -451,6 +458,19 @@ namespace ShopeeAuto
 
             if (taobaoProductInfo.Data.SkuBase != null && taobaoProductInfo.Data.SkuBase.Skus != null && taobaoProductInfo.Data.SkuBase.Skus.Count > 0)
             {
+                // Tìm ra SKU có giá cao nhất, để loại bỏ SKU nào có giá nhỏ hơn 1/5 giá cao nhất (Shopee ko cho phép chênh lệch giá quá 5 lần)
+                float maxPrice = 1;
+                foreach (NSTaobaoProduct.Skus Sku in taobaoProductInfo.Data.SkuBase.Skus)
+                {
+                    float price = float.Parse(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Price.PriceText);
+                    if (price > maxPrice)
+                    {
+                        maxPrice = price;
+                        
+                    }
+                }
+                Global.AddLog("SKU có giá cao nhất là " + maxPrice + " vì vậy sẽ bỏ qua các SKU có giá nhỏ hơn 1/3 = "+ (maxPrice / 3));
+
                 foreach (NSTaobaoProduct.Skus Sku in taobaoProductInfo.Data.SkuBase.Skus)
                 {
                     string[] skuProps = Sku.PropPath.Split(';');
@@ -467,6 +487,16 @@ namespace ShopeeAuto
                         // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
                         //float SKUPrice = SKUData.price * revenuePercent; // Dòng này sai, phải gọi lên API tính giá vc (giá gốc) xong rồi mới nhân tỉ lệ để ra giá rao trên shopee
                         float modelPrice = float.Parse(taobaoProductInfo.Data.Details.SkuCore.Sku2Info[Sku.SkuId].Price.PriceText);
+                        
+                        // Nếu giá của SKU này thấp hơn 1/5 giá của SKU cao nhất thì bỏ qua vì Shopee ko cho phép
+                        if(modelPrice / maxPrice <= 0.3f) // 1/3 cho chắc ăn, có thể còn liên quan tới phí vận chuyển
+                        {
+                            Global.AddLog("SKU cao nhất giá là "+ maxPrice+", SKU này có giá quá thấp "+modelPrice+". Bỏ qua!");
+                            continue;
+                        } else
+                        {
+                            Global.AddLog("modelPrice / maxPrice = " + (modelPrice / maxPrice) + ". Tỉ lệ này lớn hơn 0.3f nên cho tiếp tục chạy");
+                        }
 
                         Dictionary<string, string> parameters = new Dictionary<string, string>
                         {
@@ -502,7 +532,9 @@ namespace ShopeeAuto
                             }
                         } while (!calcSuccess);
                         Global.AddLog("Giá bán ra cua SKU "+ Sku.SkuId + " trước khi nhân tỉ lệ: " + model.Price.ToString() + ". Tỉ lệ nhân " + revenuePercent.ToString());
-                        model.Price = ((int)(int.Parse(model.Price) * revenuePercent / 1000) * 1000).ToString();
+                        int originalModelPrice = int.Parse(model.Price);
+                        // Giá bán ra cuối cùng bằng giá thật nhân với tỉ lệ, nhưng tối thiểu phải lãi minRevenueInMoney
+                        model.Price = (Math.Max(originalModelPrice + minRevenueInMoney, originalModelPrice * revenuePercent) / 1000 * 1000).ToString();
                         model.Sku = Sku.SkuId.ToString();
                         model.TierIndex = new List<int>() { index };
                         // Thêm SKU vào model_list
@@ -629,7 +661,7 @@ namespace ShopeeAuto
             // Độ dài tối đa 3000 kí tự
             //" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(".", ". ") + @"
             string fullPropsString = "";
-            List<string> ignoreKeys = new List<string> { "大码女装分类", "是否商场同款", "箱包硬度", "价格区间","流行款式名称", "品牌", "甜美", "货号", "套头", "开口深度", "皮质特征", "通勤", "流行元素/工艺", "安全等级", "销售渠道类型"};
+            List<string> ignoreKeys = new List<string> { "成色", "大码女装分类", "是否商场同款", "箱包硬度", "价格区间","流行款式名称", "品牌", "甜美", "货号", "套头", "开口深度", "皮质特征", "通勤", "流行元素/工艺", "安全等级", "销售渠道类型"};
             List<string> ignoreValues = new List<string> {"一字领","甜美", "套头", "开口深度", "皮质特征", "其他", "其他/other", "other", "短裙" };
             
             List<string> badWords = new List<string> {"含", "其他", "other", "元", "清仓", "价格区间"};
@@ -955,7 +987,7 @@ namespace ShopeeAuto
             //float outPrice = Math.Max(taobaoPrice * (100 + minRevenue) / 100, (shopeePrice  * (100 - random.Next(1, 3)) / 100)); // Giá tối thiểu cần có lãi, random rẻ hơn đối thủ 1 đến 3%
             // Công thức bên trên là bám theo giá đối thủ, nhưng mà nhiều lúc giá linh tinh quá. Giờ chỉ bám theo giá taobao thôi. Tối thiểu 50% và random trong khoảng min đến max
             Random rd = new Random();
-            float outPrice = Math.Max(taobaoPrice + 50000, rd.Next((int)taobaoPrice * (100 + minRevenue) / 100, (int)taobaoPrice * (100 + maxRevenue) / 100));
+            float outPrice = Math.Max(taobaoPrice + minRevenueInMoney, rd.Next((int)taobaoPrice * (100 + minRevenue) / 100, (int)taobaoPrice * (100 + maxRevenue) / 100));
             Global.AddLog("Quyết định bán ra giá chung chung là: " + outPrice.ToString());
 
             float revenuePercent;
@@ -1007,10 +1039,10 @@ namespace ShopeeAuto
 
             // POST lên shopee
             Global.AddLog("Bắt đầu up sản phẩm");
-            RestClient client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/");
+            RestClient client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/?version=3.1.0&SPC_CDS="+ SPC_CDS + "&SPC_CDS_VER=2");
             if (jobName == "update")
             {
-                client = new RestClient("https://banhang.shopee.vn/api/v3/product/update_product/");
+                client = new RestClient("https://banhang.shopee.vn/api/v3/product/update_product/?version=3.1.0&SPC_CDS="+ SPC_CDS + "&SPC_CDS_VER=2");
             }
             //client.Timeout = -1;
             RestRequest request = new RestRequest(Method.POST);
@@ -1054,7 +1086,7 @@ namespace ShopeeAuto
                                     { "shopee_price",  postData.Price},
                                     { "shopee_model_list",  JsonConvert.SerializeObject(sku.model_list)},
                                     { "taobao_skubase",  JsonConvert.SerializeObject(taobaoProductInfo.Data.SkuBase)},
-                                    { "action", "list_done" }
+                                    { "action", "done" }
                                 };
                     Global.api.RequestMyApi(parameters, Method.PUT);
                     return SuccessProductID;
@@ -1070,7 +1102,7 @@ namespace ShopeeAuto
                                     { "source", "taobao" },
                                     { "account_id", Global.myAccountId },
                                     { "message", results.data.result[0].message.ToString()},
-                                    { "action", "list_error" }
+                                    { "action", "error" }
                                 };
                     Global.api.RequestMyApi(parameters, Method.PUT);
                     return "error";
