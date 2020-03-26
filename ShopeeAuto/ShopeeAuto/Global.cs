@@ -17,7 +17,7 @@ namespace ShopeeAuto
 {
     public static class Global
     {
-        public static bool DebugMode = true;
+        public static bool DebugMode = false;
 
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
@@ -69,6 +69,7 @@ namespace ShopeeAuto
             ChromeOptions options = new ChromeOptions();
             options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
             options.AddArguments("profile-directory=Profile 1");
+            options.AddArguments("--disable-popup-blocking");
             options.AddArguments("start-maximized");
 
             try

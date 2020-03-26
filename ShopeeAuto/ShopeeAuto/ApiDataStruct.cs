@@ -1688,7 +1688,7 @@ namespace NSShopeeCreateProduct {
         [JsonProperty("options")]
         public List<string> Options { get; set; }
 
-        [JsonProperty("images")]
+        [JsonProperty("images", NullValueHandling = NullValueHandling.Ignore)]
         public List<string> Images { get; set; }
     }
 }

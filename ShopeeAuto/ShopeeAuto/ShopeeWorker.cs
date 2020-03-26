@@ -25,7 +25,7 @@ namespace ShopeeAuto
         private Helper helper = new Helper();
         private ReadOnlyCollection<OpenQA.Selenium.Cookie> shopeeCookie;
         private string SPC_CDS = "GI_CUNG_DUOC";
-        private int minRevenueInMoney = 30000;
+        private int minRevenueInMoney = 40000;
         private int minRevenue = 20;
         private int maxRevenue = 50;
         private string username;
@@ -428,6 +428,20 @@ namespace ShopeeAuto
                 }
             }
 
+            // Nếu chưa đủ 8 ảnh thì thêm luôn cho đủ 8 ảnh
+            if (PrepareTaobaoData.generalImgs.Count < 8)
+            {
+                int numberOfImage = 8 - PrepareTaobaoData.generalImgs.Count;
+                foreach (KeyValuePair<string, string> keyValuePair in PrepareTaobaoData.SKUImages)
+                {
+                    PrepareTaobaoData.generalImgs.Add(keyValuePair.Value);
+                    numberOfImage--;
+                    if(numberOfImage == 0)
+                    {
+                        break;
+                    }
+                }
+            }
             return PrepareTaobaoData;
         }
 
@@ -444,10 +458,9 @@ namespace ShopeeAuto
 
 
             List<NSShopeeCreateProduct.TierVariation> tier_variations = new List<NSShopeeCreateProduct.TierVariation>();
-
+            List<NSShopeeCreateProduct.TierVariation> final_tier_variations = new List<NSShopeeCreateProduct.TierVariation>();
             NSShopeeCreateProduct.ModelList model = new NSShopeeCreateProduct.ModelList();
             List<NSShopeeCreateProduct.ModelList> model_lists = new List<NSShopeeCreateProduct.ModelList>();
-            List<NSShopeeCreateProduct.ModelList> model_lists_final = new List<NSShopeeCreateProduct.ModelList>();
 
             // Lưu lại tránh trường nhiều variation trùng tên thì phải lưu những thằng đã dùng r
             List<string> skuNames = new List<string>();
@@ -651,9 +664,45 @@ namespace ShopeeAuto
                 }
             }
             
+            // Rà soát lại Variation một lần để đảm bảo 2 điều kiện:
+            // Số ảnh phải khớp với số options
+            // Không có options trùng tên
+            foreach(NSShopeeCreateProduct.TierVariation variation in tier_variations)
+            {
+                // Chỉ lấy images nếu số images khớp với số options (Shopee bắt vậy)
+                if (variation.Options.Count != variation.Images.Count)
+                {
+                    variation.Images.Clear();
+                }
 
+                // Thêm số thứ tự nếu gặp nhiều Variation trùng tên, sinh ra: Đỏ 2, Đỏ 3
+                List<string> Options = new List<string>();
+                foreach(string option in variation.Options)
+                {
+                    if(Options.Contains(option))
+                    {
+                        string newOption = option.Substring(0, option.Length - 3);
+                        // Không bao giờ vượt quá đc 20 vì tối đa chỉ có 20 variation
+                        for(int i = 2; i < 20; i++)
+                        {
+                            if(!Options.Contains(newOption + " " + i.ToString()))
+                            {
+                                Options.Add(newOption + " " + i.ToString());
+                                break;
+                            }
+                        }
+                    } else
+                    {
+                        Options.Add(option);
+                    }
+                }
+                variation.Options = Options;
+
+                // Thêm newVariation này vào mảng final_tier_variation
+                final_tier_variations.Add(variation);
+            }
             dynamic responseData = new ExpandoObject();
-            responseData.tier_variation = tier_variations;
+            responseData.tier_variation = final_tier_variations;
             responseData.model_list = model_lists;
             Global.AddLog("Lấy SKU xong!");
             return responseData;
@@ -882,13 +931,7 @@ namespace ShopeeAuto
 
         public string CopyTaobaoToShopee(string jobName, NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
         {
-            if(jobName == "list") {
-                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
-            } else if(jobName == "update")
-            {
-                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/"+shopeeProductInfo.Item.Itemid+"/");
-            }
-            
+            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
             Random random = new Random();
             NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":8,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
 
@@ -1086,53 +1129,55 @@ namespace ShopeeAuto
             // In kết quả trả về
             dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
             Global.AddLog("\n\n results: \n\n" + results + "\n\n");
-            try
-            {
-                if (results.message == "success")
-                {
-                    string SuccessProductID = results.data.result[0].data.product_id.ToString();
-                    Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
-                    Global.AddLog("===============================");
 
-                    Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
-                    // Báo lên server
-                    parameters = new Dictionary<string, string>
-                                {
-                                    { "route", "product/"+jobData.Id },
-                                    { "source", "taobao" },
-                                    { "account_id", Global.myAccountId },
-                                    { "taobao_item_id", taobaoProductInfo.Data.Item.ItemId },
-                                    { "shopee_item_id",  SuccessProductID},
-                                    { "shopee_shop_id",  Global.myShopId},
-                                    { "shopee_price",  postData.Price},
-                                    { "shopee_model_list",  JsonConvert.SerializeObject(sku.model_list)},
-                                    { "taobao_skubase",  JsonConvert.SerializeObject(taobaoProductInfo.Data.SkuBase)},
-                                    { "action", "done" }
-                                };
-                    Global.api.RequestMyApi(parameters, Method.PUT);
-                    return SuccessProductID;
-                }
-                else
-                {
-                    Global.AddLog("Upload thất bại, nội dung trả về là:" + results.data.result[0].message.ToString());
-                    Global.AddLog("===============================");
-                    // Báo lên server
-                    parameters = new Dictionary<string, string>
-                                {
-                                    { "route", "product/"+jobData.Id },
-                                    { "source", "taobao" },
-                                    { "account_id", Global.myAccountId },
-                                    { "message", results.data.result[0].message.ToString()},
-                                    { "action", "error" }
-                                };
-                    Global.api.RequestMyApi(parameters, Method.PUT);
-                    return "error";
-                }
-            }
-            catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+            if (results.message == "success")
             {
+                string SuccessProductID = "";
+                if (jobName == "list") { 
+                    SuccessProductID = results.data.result[0].data.product_id.ToString();
+                }
+                if (jobName == "update")
+                {
+                    SuccessProductID = shopeeProductInfo.Item.Itemid.ToString();
+                }
+                Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
+                Global.AddLog("===============================");
+
+                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+                // Báo lên server
+                parameters = new Dictionary<string, string>
+                            {
+                                { "route", "product/"+jobData.Id },
+                                { "source", "taobao" },
+                                { "account_id", Global.myAccountId },
+                                { "taobao_item_id", taobaoProductInfo.Data.Item.ItemId },
+                                { "shopee_item_id",  SuccessProductID},
+                                { "shopee_shop_id",  Global.myShopId},
+                                { "shopee_price",  postData.Price},
+                                { "shopee_model_list",  JsonConvert.SerializeObject(sku.model_list)},
+                                { "taobao_skubase",  JsonConvert.SerializeObject(taobaoProductInfo.Data.SkuBase)},
+                                { "action", "done" }
+                            };
+                Global.api.RequestMyApi(parameters, Method.PUT);
+                return SuccessProductID;
+            }
+            else
+            {
+                Global.AddLog("Upload thất bại, nội dung trả về là:" + results.data.result[0].message.ToString());
+                Global.AddLog("===============================");
+                // Báo lên server
+                parameters = new Dictionary<string, string>
+                            {
+                                { "route", "product/"+jobData.Id },
+                                { "source", "taobao" },
+                                { "account_id", Global.myAccountId },
+                                { "message", results.data.result[0].message.ToString()},
+                                { "action", "error" }
+                            };
+                Global.api.RequestMyApi(parameters, Method.PUT);
                 return "error";
             }
+           
         }
 
 

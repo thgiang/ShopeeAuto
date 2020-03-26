@@ -56,7 +56,8 @@ namespace ShopeeAuto
                 {
                     if (doneAllJob)
                     {
-                        if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
+                        //if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
+                        if (jobName == "update") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; };
                         Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
                         Jobs.Clear(); /// Xoa sach job cu
 
