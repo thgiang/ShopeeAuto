@@ -17,7 +17,7 @@ namespace ShopeeAuto
 {
     public static class Global
     {
-        public static bool DebugMode = false;
+        public static bool DebugMode = true;
 
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 

@@ -43,7 +43,7 @@ namespace ShopeeAuto
         // Lấy việc mới từ API
         private void SApi()
         {
-            string jobName = "checkorder";
+            string jobName = "list";
             while (true)
             {
                 if (Global.myAccountId == "")
@@ -313,6 +313,7 @@ namespace ShopeeAuto
                                             { "route", "product/"+jobData.Id },
                                             { "source", "taobao" },
                                             { "item_id",  taobaoProductInfo.Data.Item.ItemId},
+                                            { "account_id",  Global.myAccountId},
                                             { "action", "update_best_id" }
                                         };
                                         ApiResult apiResult = Global.api.RequestMyApi(parameters, Method.PUT);
@@ -417,6 +418,7 @@ namespace ShopeeAuto
                                 // Ngược lại thì copy thông tin từ Taobao rồi dịch
                                 else
                                 {
+                                    Global.AddLog("Tactic != 0 chưa đc xử lý, chuyển job mới");
                                     // Gọi hàm Shopee.CopyTaobaoToShopee2 trong hàm này phải dịch content tiếng TQ trước khi post thay vì copy toàn bộ thông tin của đối thủ shopee như hàm trước.
                                 }
 
@@ -456,11 +458,9 @@ namespace ShopeeAuto
 
         private void Main_Load(object sender, EventArgs e)
         {
-
             //string path = Helper.GenCaptcha("123456");
             //txtDebug.Text = path;
             //return;
-
 
             // Cho txtDebug làm biến Global
             Global.txtDebug = this.txtDebug;

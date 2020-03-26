@@ -498,7 +498,7 @@ namespace NSApiProducts
         public string Source { get; set; }
 
         [JsonProperty("value")]
-        public long Value { get; set; }
+        public int Value { get; set; }
     }
 
     public partial class TaobaoId
