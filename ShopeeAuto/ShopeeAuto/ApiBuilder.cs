@@ -6,6 +6,7 @@ using System.Configuration;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -112,6 +113,11 @@ namespace ShopeeAuto
                 {
                     // Send request now
                     response = client.Execute(request);
+                    if(response.StatusCode != HttpStatusCode.OK)
+                    {
+                        requestTime++;
+                        continue;
+                    }
                     result.success = true;
                     result.content = response.Content;
                    // results = JsonConvert.DeserializeObject<dynamic>(response.Content);
@@ -178,6 +184,11 @@ namespace ShopeeAuto
                 try
                 {
                     response = client.Execute(request);
+                    if(response.StatusCode != HttpStatusCode.OK)
+                    {
+                        requestTime++;
+                        continue;
+                    }
                     result.success = true;
                     result.content = response.Content;
                     requestTime = 3;

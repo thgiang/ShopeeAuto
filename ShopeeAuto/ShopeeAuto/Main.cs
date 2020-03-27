@@ -56,8 +56,8 @@ namespace ShopeeAuto
                 {
                     if (doneAllJob)
                     {
-                        //if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
-                        if (jobName == "update") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; };
+                        if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
+                        //jobName = "update";
                         Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
                         Jobs.Clear(); /// Xoa sach job cu
 
@@ -84,16 +84,23 @@ namespace ShopeeAuto
                             NSApiProducts.NsApiProducts result = JsonConvert.DeserializeObject<NSApiProducts.NsApiProducts>(apiResult.content);
                             List<NSApiProducts.NsApiProduct> requestResults = result.Data;
 
-                            foreach (NSApiProducts.NsApiProduct element in requestResults)
-                            {
-                                Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
-                                QueueElement job = new QueueElement
+                            if(requestResults != null) { 
+                                foreach (NSApiProducts.NsApiProduct element in requestResults)
                                 {
-                                    jobName = jobName,
-                                    jobStatus = "waiting",
-                                    jobData = element
-                                };
-                                Jobs.Add(job);
+                                    Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
+                                    QueueElement job = new QueueElement
+                                    {
+                                        jobName = jobName,
+                                        jobStatus = "waiting",
+                                        jobData = element
+                                    };
+                                    Jobs.Add(job);
+                                }
+                            }
+                            else
+                            {
+                                Global.AddLog("Không có job nào cần " + jobName);
+
                             }
                         }
                         else if (jobName == "checkorder")
@@ -215,7 +222,7 @@ namespace ShopeeAuto
                                 //continue;
 
                                 NSApiProducts.NsApiProduct jobData = job.jobData;
-                                Global.AddLog("Đang làm việc trên job " + jobData.Id);
+                                Global.AddLog("Đang làm việc trên job " + jobData.Id + ". Thao tác "+job.jobName);
                                 #region Tìm sản phẩm rẻ nhất taobao ở taobao
                                 // Kiểm tra xem mình có phải shop phụ trách chính ko. Nếu đúng thì phải scan tất cả các taobaos, nếu ko thì chỉ  cần làm đúng công việc của mình là scan cái thằng is_the_best
                                 // Lấy data từ Taobao
@@ -231,13 +238,26 @@ namespace ShopeeAuto
                                         ApiResult apiResult;
                                         apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22" + taobaoIdObj.ItemId.ToString() + "%22%7D", Method.GET);
                                         Thread.Sleep(600); // Request nhanh quá bị taobao chặn
+                                       
                                         if (apiResult.success)
                                         {
+                                            
                                             NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
-                                            // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
+                                            // JSON decode cais ApiStack thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
+
+                                            // Bỏ qua sản phẩm có 3 Variation bởi vì Shopee chỉ cho phép tối đa 2 variation
+                                            if(tbp.Data != null && tbp.Data.SkuBase != null && tbp.Data.SkuBase.Props != null)
+                                            {
+                                                if(tbp.Data.SkuBase.Props.Count > 2)
+                                                {
+                                                    Global.AddLog("Bỏ qua vì Sản phẩm này có "+ tbp.Data.SkuBase.Props.Count+" variations (shopee chỉ cho 2)");
+                                                    continue;
+                                                }
+                                            }
 
                                             if (tbp.Data.ApiStack == null)
                                             {
+                                                Global.AddLog("Bỏ qua vì API Stack bị null");
                                                 // SẢN PHẨM NÀY CHẢ CÓ THÔNG TIN MẸ GÌ CẢ, BÁN CŨNG KHÓ. THÔI NEXT
                                                 continue;
                                             }
@@ -245,6 +265,7 @@ namespace ShopeeAuto
                                             tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
                                             if(tbp.Data.Details == null)
                                             {
+                                                Global.AddLog("Bỏ qua vì API Stack -> Details bị null");
                                                 continue;
                                             }
 
@@ -263,13 +284,14 @@ namespace ShopeeAuto
                                                     }
                                                 }
                                             }
+                                            
                                             if ((float)outOfStock / totalSku > 0.5f)
                                             {
                                                 // QUÁ NHIỀU SKU HẾT HÀNG. BỎ QUA
                                                 Global.AddLog("Sản phẩm này có "+ totalSku+ " sku thì hết hàng " + outOfStock);
                                                 continue;
                                             }
-
+                                            
                                             // Tìm thằng rẻ hơn
                                             string[] tempPrices = tbp.Data.Details.Price.Price.PriceText.Split('-');
                                             float tempPrice = float.Parse(tempPrices[0]);
@@ -288,6 +310,7 @@ namespace ShopeeAuto
                                                 taobaoProductInfo = tbp;
                                                 minTaobaoPrice = tempPrice;
                                             }
+                                            
                                         }
                                     }
 
@@ -380,27 +403,57 @@ namespace ShopeeAuto
                                     if (job.jobName == "list")
                                     {
                                         shopeeProductInfo = Shopee.GetShopeeProductData(jobData.ShopeeIds.First().ItemId, jobData.ShopeeIds.First().ShopId);
-                                    } 
-                                    // Nếu update thì đọc thông tin chính sản phẩm của mình
-                                    else if(job.jobName == "update")
-                                    {
-                                        shopeeProductInfo = Shopee.GetShopeeProductData(jobData.Shops.First().ShopeeItemId, jobData.Shops.First().ShopeeShopId);
-                                    }
-                                    
-                                    if (shopeeProductInfo == null)
-                                    {
-                                        Dictionary<string, string> parameters = new Dictionary<string, string>
+                                        if (shopeeProductInfo == null)
+                                        {
+                                            Dictionary<string, string> parameters = new Dictionary<string, string>
                                         {
                                             { "route", "product/"+jobData.Id },
                                             { "account_id",  Global.myAccountId},
                                             { "action", "error" },
                                             { "message", "Không đọc được thông tin sản phẩm Shopee. ID: "+jobData.ShopeeIds.First().ItemId+", Shop: "+ jobData.ShopeeIds.First().ShopId},
                                         };
-                                        Global.api.RequestMyApi(parameters, Method.PUT);
-                                        job.jobStatus = "done";
-                                        Global.AddLog("ERROR: Lỗi lấy thông tin sản phẩm shopeeId " + jobData.ShopeeIds.First().ItemId + ", shopId " + jobData.ShopeeIds.First().ShopId);
-                                        continue;
-                                    };
+                                            Global.api.RequestMyApi(parameters, Method.PUT);
+                                            job.jobStatus = "done";
+                                            Global.AddLog("ERROR: Lỗi lấy thông tin sản phẩm shopeeId " + jobData.ShopeeIds.First().ItemId + ", shopId " + jobData.ShopeeIds.First().ShopId);
+                                            continue;
+                                        };
+                                    } 
+                                    // Nếu update thì đọc thông tin chính sản phẩm của mình
+                                    else if(job.jobName == "update")
+                                    {
+                                        if(jobData.Shops.First().ShopeeItemId == "" || jobData.Shops.First().ShopeeShopId == "")
+                                        {
+                                            Global.AddLog("ERROR: Job yêu cầu update nhưng ShopeeItemId với cả ShopeeShopId rỗng thì biết update cái gì");
+                                            Dictionary<string, string> parameters = new Dictionary<string, string>
+                                            {
+                                                { "route", "product/"+jobData.Id },
+                                                { "account_id",  Global.myAccountId},
+                                                { "action", "error" },
+                                                { "message", "Job yêu cầu update nhưng ShopeeItemId với cả ShopeeShopId rỗng thì biết update cái gì"},
+                                            };
+                                            Global.api.RequestMyApi(parameters, Method.PUT);
+                                            job.jobStatus = "done";
+                                            continue;
+
+                                        }
+                                        shopeeProductInfo = Shopee.GetShopeeProductData(jobData.Shops.First().ShopeeItemId, jobData.Shops.First().ShopeeShopId);
+                                        if (shopeeProductInfo == null)
+                                        {
+                                            Dictionary<string, string> parameters = new Dictionary<string, string>
+                                            {
+                                                { "route", "product/"+jobData.Id },
+                                                { "account_id",  Global.myAccountId},
+                                                { "action", "error" },
+                                                { "message", "Không đọc được thông tin sản phẩm Shopee. ID: "+jobData.Shops.First().ShopeeItemId+", Shop: "+ jobData.Shops.First().ShopeeShopId},
+                                            };
+                                            Global.api.RequestMyApi(parameters, Method.PUT);
+                                            job.jobStatus = "done";
+                                            Global.AddLog("ERROR: Lỗi lấy thông tin sản phẩm shopeeId " + jobData.Shops.First().ShopeeItemId + ", shopId " + jobData.Shops.First().ShopeeShopId);
+                                            continue;
+                                        };
+                                    }
+                                    
+                                    
                                     Global.AddLog("Lấy data từ Shopee xong");
                                     #endregion
 
@@ -419,6 +472,7 @@ namespace ShopeeAuto
                                 // Ngược lại thì copy thông tin từ Taobao rồi dịch
                                 else
                                 {
+                                    job.jobStatus = "done";
                                     Global.AddLog("Tactic != 0 chưa đc xử lý, chuyển job mới");
                                     // Gọi hàm Shopee.CopyTaobaoToShopee2 trong hàm này phải dịch content tiếng TQ trước khi post thay vì copy toàn bộ thông tin của đối thủ shopee như hàm trước.
                                 }

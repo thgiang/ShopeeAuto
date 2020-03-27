@@ -369,40 +369,40 @@ namespace NSApiProducts
         public string Status { get; set; }
 
         [JsonProperty("current_page")]
-        public long CurrentPage { get; set; }
+        public int? CurrentPage { get; set; }
 
         [JsonProperty("data")]
         public List<NsApiProduct> Data { get; set; }
 
         [JsonProperty("first_page_url")]
-        public Uri FirstPageUrl { get; set; }
+        public string FirstPageUrl { get; set; }
 
         [JsonProperty("from")]
-        public long From { get; set; }
+        public int? From { get; set; }
 
         [JsonProperty("last_page")]
-        public long LastPage { get; set; }
+        public int? LastPage { get; set; }
 
         [JsonProperty("last_page_url")]
-        public Uri LastPageUrl { get; set; }
+        public string LastPageUrl { get; set; }
 
         [JsonProperty("next_page_url")]
-        public Uri NextPageUrl { get; set; }
+        public string NextPageUrl { get; set; }
 
         [JsonProperty("path")]
-        public Uri Path { get; set; }
+        public string Path { get; set; }
 
         [JsonProperty("per_page")]
-        public long PerPage { get; set; }
+        public int? PerPage { get; set; }
 
         [JsonProperty("prev_page_url")]
-        public object PrevPageUrl { get; set; }
+        public string PrevPageUrl { get; set; }
 
         [JsonProperty("to")]
-        public long To { get; set; }
+        public int? To { get; set; }
 
         [JsonProperty("total")]
-        public long Total { get; set; }
+        public int? Total { get; set; }
     }
 
     public partial class NsApiProduct
@@ -699,7 +699,7 @@ namespace NSTaobaoProductDetail
         public long SellCount { get; set; }
 
         [JsonProperty("vagueSellCount")]
-        public long VagueSellCount { get; set; }
+        public string VagueSellCount { get; set; }
 
         [JsonProperty("skuText")]
         public string SkuText { get; set; }
@@ -708,7 +708,7 @@ namespace NSTaobaoProductDetail
         public List<object> Videos { get; set; }
 
         [JsonProperty("descType")]
-        public long DescType { get; set; }
+        public string DescType { get; set; }
 
         [JsonProperty("title")]
         public string Title { get; set; }
