@@ -126,6 +126,7 @@ namespace ShopeeAuto
                     }
                     else
                     {
+                        Global.AddLog("Lỗi khi thực hiện job " + e.Message + e.StackTrace);
                         Thread.Sleep(2000);
                         continue;
                     }
@@ -502,6 +503,7 @@ namespace ShopeeAuto
                     }
                     else
                     {
+                        Global.AddLog("Lỗiiiiiii khi thực hiện job " + e.Message + e.StackTrace);
                         Thread.Sleep(1000);
                         continue;
                     }

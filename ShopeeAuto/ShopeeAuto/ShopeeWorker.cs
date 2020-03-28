@@ -383,6 +383,10 @@ namespace ShopeeAuto
                 {
                     foreach (NSTaobaoProduct.Value value in prop.Values)
                     {
+                        if (value.Name != null)
+                        {
+                            PrepareTaobaoData.skuNames[(prop.Pid + ":" + value.Vid)] = value.Name;
+                        }
 
                         if (value.Image != null)
                         {
@@ -397,18 +401,14 @@ namespace ShopeeAuto
                                 if (shopeeMd5 != "")
                                 {
                                     PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
+                                  
                                 }
                             }
                             // SKU proppath có dạng "20509:28314;1627207:28341" vì vậy ở đây mình ghép Pid và Vid vào thành 1627207:28341 cho dễ gọi
-                            if (PrepareTaobaoData.uploadedImages[value.Image] != null)
+                            if (PrepareTaobaoData.uploadedImages.ContainsKey(value.Image))
                             {
                                 PrepareTaobaoData.SKUImages[prop.Pid + ":" + value.Vid] = PrepareTaobaoData.uploadedImages[value.Image];
                             }
-                        }
-
-                        if (value.Name != null)
-                        {
-                            PrepareTaobaoData.skuNames[(prop.Pid + ":" + value.Vid)] = value.Name;
                         }
                     }
                 }
@@ -491,7 +491,7 @@ namespace ShopeeAuto
 
                 foreach (NSTaobaoProduct.Prop prop in taobaoProductInfo.Data.SkuBase.Props)
                 {
-                    string translated = Global.Translate(prop.Name).Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("  ", " ");
+                    string translated = Global.Translate(prop.Name).Replace("đề xuất","").Replace("Đề xuất","").Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("  ", " ");
                     if (translated.Length > 14)
                     {
                         translated = translated.Substring(0, 14);
@@ -499,7 +499,8 @@ namespace ShopeeAuto
                     cacheTranslate.Add(prop.Pid.ToString(), translated);
                     foreach (NSTaobaoProduct.Value propValue in prop.Values)
                     {
-                        translated = Global.Translate(propValue.Name).Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("  ", " ");
+                        string chinese = propValue.Name.Replace("大码", "").Replace("保证质量", "").Replace("保质质量", "");
+                        translated = Global.Translate(chinese).Replace("đề xuất", "").Replace("Đề xuất", "").Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("trên nền", "nền").Replace("  ", " ");
                         if (translated.Length > 20)
                         {
                             translated = translated.Substring(0, 20);
@@ -565,6 +566,7 @@ namespace ShopeeAuto
                             Thread.Sleep(1000);
                         }
                     } while (!calcSuccess);
+      
                     Global.AddLog("Giá bán ra cua SKU " + Sku.SkuId + " trước khi nhân tỉ lệ: " + model.Price.ToString() + ". Tỉ lệ nhân " + revenuePercent.ToString());
                     int originalModelPrice = int.Parse(model.Price);
                     // Giá bán ra cuối cùng bằng giá thật nhân với tỉ lệ, nhưng tối thiểu phải lãi minRevenueInMoney
@@ -580,6 +582,8 @@ namespace ShopeeAuto
                     // Sắp xếp lại skuProps (thực ra muốn đảo cái Màu sắc lên trước, size xuống dưới
                     // 20509 size, 1627207 màu, còn gì nữa chưa biết kệ đã. Như vậy là sẽ sắp xếp từ lớn tới bé
                     Array.Sort(skuProps);
+
+                    bool caneBeSkipped = false; // Flag để bỏ qua model này, đc dùng khi model có chứa option > 20, do shopee chỉ cho tối đa 20 options
                     foreach (string skuProp in skuProps)
                     {
                         //123:666
@@ -601,19 +605,32 @@ namespace ShopeeAuto
                                     Global.AddLog("Ko tìm thấy option vì vậy phải add nó vào " + propParts[1]);
                                     Global.AddLog("Variation " + variation.Name + " hiện đang có sẵn " + variation.Options.Count + " options. Bây giờ thêm là nó phải ở vị trí này -1 rồi +1");
                                     // Nếu đây là option mới thì thêm option và ảnh (nếu có)
-                                    variation.Options.Add(propParts[1]);
-                                    Global.AddLog("Vị trí của option " + propParts[1] + " vừa đc thêm là " + variation.Options.IndexOf(propParts[1]));
-                                    if (PrepareTaobaoData.SKUImages.ContainsKey(skuProp))
+                                    // Tuy nhiên Shopee ko cho tạo qúa 20 option vì vậy một số model sẽ bị bỏ qua bằng cờ canBeSkipped
+                                   
+                                    if(variation.Options.Count == 20) // Bằng 20 thì skip luôn nên ko bao giờ có SKU thứ 21
                                     {
-                                        variation.Images.Add(PrepareTaobaoData.SKUImages[skuProp]);
+                                        caneBeSkipped = true;
+                                    } else
+                                    {
+                                        variation.Options.Add(propParts[1]);
+                                        Global.AddLog("Vị trí của option " + propParts[1] + " vừa đc thêm là " + variation.Options.IndexOf(propParts[1]));
+                                        if (PrepareTaobaoData.SKUImages.ContainsKey(skuProp))
+                                        {
+                                            variation.Images.Add(PrepareTaobaoData.SKUImages[skuProp]);
+                                        }
                                     }
+                                    
                                 } else
                                 {
                                     Global.AddLog("Vị trí của option " + propParts[1] + " (đã có sẵn) là " + variation.Options.IndexOf(propParts[1]));
                                 }
 
-                                // Tới đây thì chắc chắn đã tìm đc option rồi (vì 1 là tìm thấy sẵn, 2 là đc add ở trên)
-                                model.TierIndex.Add(variation.Options.IndexOf(propParts[1]));
+                                // Tới đây NẾU KO BỊ SKIP do quá nhiều thì nghĩa là sẽ tìm đc option (vì 1 là tìm thấy sẵn, 2 là đc add ở trên)
+                                if(!caneBeSkipped)
+                                {
+                                    model.TierIndex.Add(variation.Options.IndexOf(propParts[1]));
+                                }
+                                
 
                                 // Update variation cũ
                                 tier_variations[variationIndex] = variation;
@@ -646,11 +663,13 @@ namespace ShopeeAuto
                     }
                     //======= Hết Tier variation ==========
 
-                    model_lists.Add(model);
-                    skuCount++;
-
-                    // Nếu sản phẩm chỉ có 1 thuộc tính thì shopee giới hạn 20 model
-                    if (tier_variations.Count == 1 && skuCount == 20)
+                    if (!caneBeSkipped)
+                    {
+                        model_lists.Add(model);
+                        skuCount++;
+                    }
+                    // Nếu sản phẩm chỉ có 1 thuộc tính thì shopee giới hạn 20 model, 2 thuộc tính thì tối đa 50 SKU
+                    if ((tier_variations.Count == 1 && skuCount == 20) || skuCount == 50)
                     {
                         break;
                     }
@@ -1178,7 +1197,7 @@ namespace ShopeeAuto
                 NamingStrategy = new SnakeCaseNamingStrategy()
             };
             string postDataString = JsonConvert.SerializeObject(postDataFinal, new JsonSerializerSettings { ContractResolver = contractResolver });
-            //Global.AddLog(postDataString);
+            Global.AddLog(postDataString);
             request.AddParameter("application/json;charset=UTF-8", postDataString, ParameterType.RequestBody);
             IRestResponse response = client.Execute(request);
             // In kết quả trả về
