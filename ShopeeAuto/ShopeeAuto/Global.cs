@@ -68,7 +68,7 @@ namespace ShopeeAuto
             chromeDriverService.HideCommandPromptWindow = true;
             ChromeOptions options = new ChromeOptions();
             options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
-            options.AddArguments("profile-directory=Profile 1");
+            options.AddArguments("profile-directory=Profile 2");
             options.AddArguments("--disable-popup-blocking");
             options.AddArguments("start-maximized");
 

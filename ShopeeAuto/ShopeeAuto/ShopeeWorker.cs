@@ -49,8 +49,8 @@ namespace ShopeeAuto
                 // password = client.Data.ShopeePassword.ToString();
                 // Global.myAccountId = client.Data.Id.ToString();
                 Global.myAccountId = "5e6cc1832a895c6611691942";
-                username = "nhutam9045";
-                password = "Tapphelu@123627";
+                username = "dohaonhien1712";
+                password = "Dohaonhien1712";
             }
             // Lỗi khi gọi lên server lấy username, pass
             else
@@ -1314,7 +1314,8 @@ namespace ShopeeAuto
             foreach (NSShopeeOrders.Order order in orders)
             {
                 order.Market = "SHOPEE";
-                /*
+                order.AccountId = Global.myAccountId;
+
                 // TESTTTTT Đoạn này để test, lấy lại hóa đơn vận đơn cũ.
                 ApiResult apiResulttest;
                 apiResulttest = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/shipment/get_drop_off/?order_id=" + order.OrderId, Method.GET, shopeeCookie);
@@ -1345,26 +1346,10 @@ namespace ShopeeAuto
                             Global.AddLog("ERROR: Co loi xay ra khi upload don hang " + e.Message + e.StackTrace);
                         }
                         Global.AddLog("OrderID: " + order.OrderId + ". Đã lấy xong mã vận đơn và lưu ảnh");
-
-                        // GỬI TIN NHẮN YÊU CẦU KHÁCH XÁC NHẬN ĐƠN
-                        Random random = new Random();
-                        int randomBetween1000And9999 = random.Next(100000, 999999);
-                        string captchaFile = Helper.GenCaptcha(randomBetween1000And9999.ToString());
-                        string url = PostImageToShopeeChat(captchaFile);
-                        if (url == "")
-                        {
-                            SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Cảm ơn Quý khách đã đặt hàng. Quý khách vui lòng trả lời tin nhắn với nội dung \"" + randomBetween1000And9999 + "\" để xác nhận đơn hàng. Trân trọng cảm ơn!");
-                        }
-                        else
-                        {
-                            SendChatToShopee(order.BuyerUser.UserId.ToString(), "image", url);
-                            Thread.Sleep(500);
-                            SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Cảm ơn Quý khách đã đặt hàng. Quý khách vui lòng trả lời tin nhắn với nội dung là số được ghi trong ảnh để xác nhận đơn hàng. Trân trọng cảm ơn!");
-                        }
                     }
                 }
                 ordersSendToServer.Add(order);
-                */
+                
                 /// HẾT TEST
                 /// 
 
@@ -1424,6 +1409,7 @@ namespace ShopeeAuto
                                                 }
                                                 Global.AddLog("OrderID: " + order.OrderId + ". Đã lấy xong mã vận đơn và lưu ảnh ở lần thứ " + x);
 
+                                                /*
                                                 // GỬI TIN NHẮN YÊU CẦU KHÁCH XÁC NHẬN ĐƠN
                                                 Random random = new Random();
                                                 int randomBetween1000And9999 = random.Next(1000, 9999);
@@ -1438,7 +1424,7 @@ namespace ShopeeAuto
                                                     SendChatToShopee(order.BuyerUser.UserId.ToString(), "image", url);
                                                     Thread.Sleep(500);
                                                     SendChatToShopee(order.BuyerUser.UserId.ToString(), "text", "Cảm ơn Quý khách đã đặt hàng. Quý khách vui lòng trả lời tin nhắn với nội dung là số được ghi trong ảnh để xác nhận đơn hàng. Trân trọng cảm ơn!");
-                                                }
+                                                }*/
                                                 break;
                                             }
                                         }

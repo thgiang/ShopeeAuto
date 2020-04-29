@@ -1738,6 +1738,8 @@ namespace NSShopeeOrders
     {
         public string MVD { get; set; } // Cái này ko có trong JSON trả về, tự add tay vào thoy
         public string MVDImage { get; set; } // Cái này ko có trong JSON trả về, tự add tay vào thoy
+        [JsonProperty("account_id")]
+        public string AccountId { get; set; } // KO cos trong JSON tra ve, add tay
 
         [JsonProperty("comm_fee")]
         public string CommFee { get; set; }

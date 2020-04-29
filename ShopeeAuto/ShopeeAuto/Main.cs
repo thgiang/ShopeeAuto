@@ -43,7 +43,7 @@ namespace ShopeeAuto
         // Lấy việc mới từ API
         private void SApi()
         {
-            string jobName = "list";
+            string jobName = "checkorder";
             while (true)
             {
                 if (Global.myAccountId == "")
@@ -57,7 +57,7 @@ namespace ShopeeAuto
                     if (doneAllJob)
                     {
                         if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
-                        //jobName = "update";
+                        jobName = "checkorder";
                         Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
                         Jobs.Clear(); /// Xoa sach job cu
 
