@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NSApiProducts;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
@@ -22,18 +23,14 @@ namespace ShopeeAuto
     public partial class Main : Form
     {
 
-        // ShopeeWorker
-        private ShopeeWorker Shopee;
 
-        // Danh sách job
+        // Class danh sách job
         class QueueElement
         {
             public string jobName;
             public string jobStatus = "waiting";
             public dynamic jobData;
         }
-        List<QueueElement> Jobs = new List<QueueElement>();
-        bool doneAllJob = true;
 
         public Main()
         {
@@ -41,102 +38,87 @@ namespace ShopeeAuto
         }
 
         // Lấy việc mới từ API
-        private void SApi()
+        private List<QueueElement> SApi(string myAccountId, string jobName)
         {
-            string jobName = "checkorder";
-            while (true)
+            List<QueueElement> Jobs = new List<QueueElement>();
+            try
             {
-                if (Global.myAccountId == "")
+                Global.AddLog("Đã thực hiện xong công việc cũ, chuẩn bị lấy việc mới");
+                Jobs.Clear(); /// Xoa sach job cu
+
+                Global.AddLog("JOBNAME: " + jobName);
+                // Lấy sản phẩm cần list
+                if (jobName == "list" || jobName == "update" || jobName == "random")
                 {
-                    Global.AddLog("Đang chờ thông tin username, password");
-                    Thread.Sleep(1000);
-                    continue;
-                }
-                try
-                {
-                    if (doneAllJob)
+                    Dictionary<string, string> parameters = new Dictionary<string, string>
                     {
-                        if (jobName == "checkorder") { jobName = "list"; } else if (jobName == "list") { jobName = "update"; } else { jobName = "checkorder"; };
-                        jobName = "checkorder";
-                        Global.AddLog("Đã thực hiện xong công việc, chuẩn bị lấy việc mới");
-                        Jobs.Clear(); /// Xoa sach job cu
+                        { "route", "product" },
+                        { "action", jobName },
+                        { "per_page", "5" },
+                        { "account_id", Global.myAccountId },
+                    };
 
-                        Global.AddLog("JOBNAME: " + jobName);
-                        // Lấy sản phẩm cần list
-                        if (jobName == "list" || jobName == "update")
+                    ApiResult apiResult;
+                    apiResult = Global.api.RequestMyApi(parameters);
+                    if (!apiResult.success)
+                    {
+                        Global.AddLog("ERROR: Lỗi lấy job từ server");
+                        Thread.Sleep(5000);
+                    }
+                    NSApiProducts.NsApiProducts result = JsonConvert.DeserializeObject<NSApiProducts.NsApiProducts>(apiResult.content);
+                    List<NSApiProducts.NsApiProduct> requestResults = result.Data;
+
+                    if(requestResults != null) { 
+                        foreach (NSApiProducts.NsApiProduct element in requestResults)
                         {
-                            Dictionary<string, string> parameters = new Dictionary<string, string>
-                            {
-                                { "route", "product" },
-                                { "action", jobName },
-                                { "per_page", "5" },
-                                { "account_id", Global.myAccountId },
-                            };
-
-                            ApiResult apiResult;
-                            apiResult = Global.api.RequestMyApi(parameters);
-                            if (!apiResult.success)
-                            {
-                                Global.AddLog("ERROR: Lỗi lấy job từ server");
-                                Thread.Sleep(5000);
-                                continue;
-                            }
-                            NSApiProducts.NsApiProducts result = JsonConvert.DeserializeObject<NSApiProducts.NsApiProducts>(apiResult.content);
-                            List<NSApiProducts.NsApiProduct> requestResults = result.Data;
-
-                            if(requestResults != null) { 
-                                foreach (NSApiProducts.NsApiProduct element in requestResults)
-                                {
-                                    Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
-                                    QueueElement job = new QueueElement
-                                    {
-                                        jobName = jobName,
-                                        jobStatus = "waiting",
-                                        jobData = element
-                                    };
-                                    Jobs.Add(job);
-                                }
-                            }
-                            else
-                            {
-                                Global.AddLog("Không có job nào cần " + jobName);
-
-                            }
-                        }
-                        else if (jobName == "checkorder")
-                        {
-                            Global.AddLog("Đã thêm vào hàng đợi job kiểm tra order mới");
+                            Global.AddLog("Đã thêm vào hàng đợi job: " + element.Id);
                             QueueElement job = new QueueElement
                             {
                                 jobName = jobName,
                                 jobStatus = "waiting",
-                                jobData = null
+                                jobData = element
                             };
                             Jobs.Add(job);
                         }
-                        doneAllJob = false;
-                    }
-                    Thread.Sleep(2000);
-                }
-                catch (Exception e)
-                {
-                    if (Global.DebugMode)
-                    {
-                        MessageBox.Show("Lỗi khi thực hiện job " + e.Message);
                     }
                     else
                     {
-                        Global.AddLog("Lỗi khi thực hiện job " + e.Message + e.StackTrace);
-                        Thread.Sleep(2000);
-                        continue;
-                    }
+                        Global.AddLog("Không có job nào cần " + jobName);
 
+                    }
+                }
+                else if (jobName == "checkorder")
+                {
+                    Global.AddLog("Đã thêm vào hàng đợi job kiểm tra order mới");
+                    QueueElement job = new QueueElement
+                    {
+                        jobName = jobName,
+                        jobStatus = "waiting",
+                        jobData = null
+                    };
+                    Jobs.Add(job);
+                }
+                return Jobs;
+            }
+            catch (Exception e)
+            {
+                if (Global.DebugMode)
+                {
+                    MessageBox.Show("Lỗi khi lấy job từ server " + e.Message);
+                    return Jobs;
+                }
+                else
+                {
+                    Global.AddLog("Lỗi khi lấy job từ server " + e.Message + e.StackTrace);
+                    Thread.Sleep(2000);
+                    return Jobs;
                 }
             }
+            
         }
 
         // Thực hiện công việc
-        private void SWorker()
+        private bool SWorker(ShopeeWorker Shopee, List<QueueElement> Jobs, ChromeDriver driver)
         {
             #region Kiểm tra login
             bool isLoggedIn = false;
@@ -187,7 +169,7 @@ namespace ShopeeAuto
                 {
                     try
                     {
-                        IWebElement elementName = Global.driver.FindElement(By.Id("auth_content"));
+                        IWebElement elementName = driver.FindElement(By.Id("auth_content"));
                         if (elementName != null)
                         {
                             Global.authToken = elementName.Text;
@@ -209,14 +191,14 @@ namespace ShopeeAuto
             {
                 try
                 {
+                    Global.AddLog("Bắt đầu thực hiện JOBS");
                     // BẮT ĐẦU CÔNG VIỆC CHÍNH
                     foreach (QueueElement job in Jobs.ToList())
                     {
-
                         if(job.jobStatus == "waiting")
                         {
                             // Xử lý product chờ được list
-                            if (job.jobName == "list" || job.jobName == "update")
+                            if (job.jobName == "list" || job.jobName == "update" || job.jobName == "random")
                             {
                                 // TẠM ĐẶT NHƯ NÀY ĐỂ TEST THÔI, CHUYỂN SANG VIỆC KHÁC
                                 //job.jobStatus = "done";
@@ -401,10 +383,10 @@ namespace ShopeeAuto
                                     NSShopeeProduct.ShopeeProduct shopeeProductInfo = new NSShopeeProduct.ShopeeProduct();
 
                                     // Nếu list mới thì đọc thông tin đối thủ
-                                    if (job.jobName == "list")
+                                    if (job.jobName == "list" || job.jobName == "random")
                                     {
                                         shopeeProductInfo = Shopee.GetShopeeProductData(jobData.ShopeeIds.First().ItemId, jobData.ShopeeIds.First().ShopId);
-                                        if (shopeeProductInfo == null)
+                                        if (shopeeProductInfo == null || shopeeProductInfo.Item == null)
                                         {
                                             Dictionary<string, string> parameters = new Dictionary<string, string>
                                         {
@@ -438,7 +420,7 @@ namespace ShopeeAuto
 
                                         }
                                         shopeeProductInfo = Shopee.GetShopeeProductData(jobData.Shops.First().ShopeeItemId, jobData.Shops.First().ShopeeShopId);
-                                        if (shopeeProductInfo == null)
+                                        if (shopeeProductInfo == null || shopeeProductInfo.Item == null)
                                         {
                                             Dictionary<string, string> parameters = new Dictionary<string, string>
                                             {
@@ -492,8 +474,7 @@ namespace ShopeeAuto
                             job.jobStatus = "done"; // Lỗi hay gì thì cũng phải done thôi để còn làm việc khác, hehe
                         }
                     }
-                    doneAllJob = true;
-                    Thread.Sleep(500);
+                    return true;
                 }
                 catch (Exception e)
                 {
@@ -512,6 +493,38 @@ namespace ShopeeAuto
 
         }
 
+        private ChromeDriver InitDriver()
+        {
+            // Chrome driver
+            ChromeDriver driver;
+            WebDriverWait wait;
+
+            var chromeDriverService = ChromeDriverService.CreateDefaultService();
+            chromeDriverService.HideCommandPromptWindow = true;
+            ChromeOptions options = new ChromeOptions();
+            options.AddArguments("user-data-dir=C:/Users/Admin/AppData/Local/Google/Chrome/User Data Fake/");
+            options.AddArguments("profile-directory=Profile 2");
+            options.AddArguments("--disable-popup-blocking");
+            options.AddArguments("start-maximized");
+
+            try
+            {
+                driver = new ChromeDriver(chromeDriverService, options);
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
+
+            }
+            catch
+            {
+                driver = new ChromeDriver(chromeDriverService, options);
+                wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined })");
+            }
+
+            return driver;
+        }
 
         private void Main_Load(object sender, EventArgs e)
         {
@@ -519,6 +532,15 @@ namespace ShopeeAuto
             //txtDebug.Text = path;
             //return;
 
+
+            /*
+            ApiResult apiResult;
+            apiResult = Global.api.RequestOthers("https://translate.google.com/translate_a/t?v=2.0&hl=vi&ie=UTF-8&client=at&sc=1&oe=UTF-8&text=珍珠白送充电硅胶洁面刷&sl=zh-CN&tl=vi", Method.POST);
+            if (apiResult.success)
+            {
+                Global.AddLog(apiResult.content);
+            }
+            */
             // Cho txtDebug làm biến Global
             Global.txtDebug = this.txtDebug;
 
@@ -530,33 +552,36 @@ namespace ShopeeAuto
             }
 
 
-            /*
-            ApiResult apiResult;
-            apiResult = Global.api.RequestOthers("https://translate.google.com/translate_a/t?v=2.0&hl=vi&ie=UTF-8&client=at&sc=1&oe=UTF-8&text=珍珠白送充电硅胶洁面刷&sl=zh-CN&tl=vi", Method.POST);
-            if (apiResult.success)
-            {
-                Global.AddLog(apiResult.content);
-            }
-            */
-
-            // Khởi tạo ShopeeWorker
-            Shopee = new ShopeeWorker();
-
-
-            // Thread này định kì gọi lên API tổng để xin công việc mới
-            Thread threadUpdate = new Thread(SApi);
-            threadUpdate.Start();
-
             // Thread này thực hiện các công việc đang có và báo ngược về Server kết quả
-            Thread threadListing = new Thread(SWorker);
-            threadListing.Start();
+            //Thread threadListing = new Thread(SWorker);
+            //threadListing.Start();
+
+            for(int i = 0; i < 1; i++)
+            {
+                Thread threadAcc = new Thread(() => threadAcc1("5e6cc1832a895c6611691942"));
+                threadAcc.Start();
+            }
+        }
+
+        public void threadAcc1(string myAccountId)
+        {
+            // Khởi tạo Driver
+            ChromeDriver driver = InitDriver();
+
+            // Lấy Job và thực hiện
+            ShopeeWorker shopeeWorker = new ShopeeWorker(driver, myAccountId);
+            do
+            {
+                List<QueueElement> jobs = SApi(myAccountId, "random");
+                SWorker(shopeeWorker, jobs, driver);
+            } while (true);
         }
 
         private void Main_FormClosed(object sender, FormClosedEventArgs e)
         {
-            Global.driver.Quit();
-            Environment.Exit(Environment.ExitCode);
-            Application.Exit();
+            //Global.driver.Quit();
+            //Environment.Exit(Environment.ExitCode);
+            //Application.Exit();
         }
 
         private void txtDebug_TextChanged(object sender, EventArgs e)

@@ -151,7 +151,7 @@ namespace ShopeeAuto
                 foreach (OpenQA.Selenium.Cookie cookie in cookies)
                 {
                     request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
-                    request.AddCookie("SPC_CDS", "GICUNGDUOC");
+                    //request.AddCookie("SPC_CDS", "GICUNGDUOC");
                 }
 
             }

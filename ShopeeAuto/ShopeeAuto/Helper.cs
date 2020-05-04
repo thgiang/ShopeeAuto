@@ -1,4 +1,5 @@
 ﻿using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.Extensions;
 using System;
 using System.Collections.Generic;
@@ -36,12 +37,12 @@ namespace ShopeeAuto
             
         }
 
-        public static Bitmap ScreenshotWayBill()
+        public static Bitmap ScreenshotWayBill(ChromeDriver driver)
         {
             int x = 682, y = 75, width = 555, height = 760, appendHeight = 60;
 
             // Chupj ảnh Chrome
-            Screenshot screenshot = Global.driver.TakeScreenshot();
+            Screenshot screenshot = driver.TakeScreenshot();
             Image image = ScreenshotToImage(screenshot);
 
             // Tạo graphic mới
@@ -139,19 +140,19 @@ namespace ShopeeAuto
         }
 
         // Chụp ảnh toàn bộ trang web
-        public static Image GetEntireScreenshot()
+        public static Image GetEntireScreenshot(ChromeDriver driver)
         {
             // Get the total size of the page
-            var totalWidth = (int)(long)((IJavaScriptExecutor)Global.driver).ExecuteScript("return document.body.offsetWidth"); //documentElement.scrollWidth");
-            var totalHeight = (int)(long)((IJavaScriptExecutor)Global.driver).ExecuteScript("return  document.body.parentNode.scrollHeight");
+            var totalWidth = (int)(long)((IJavaScriptExecutor)driver).ExecuteScript("return document.body.offsetWidth"); //documentElement.scrollWidth");
+            var totalHeight = (int)(long)((IJavaScriptExecutor)driver).ExecuteScript("return  document.body.parentNode.scrollHeight");
             // Get the size of the viewport
-            var viewportWidth = (int)(long)((IJavaScriptExecutor)Global.driver).ExecuteScript("return document.body.clientWidth"); //documentElement.scrollWidth");
-            var viewportHeight = (int)(long)((IJavaScriptExecutor)Global.driver).ExecuteScript("return window.innerHeight"); //documentElement.scrollWidth");
+            var viewportWidth = (int)(long)((IJavaScriptExecutor)driver).ExecuteScript("return document.body.clientWidth"); //documentElement.scrollWidth");
+            var viewportHeight = (int)(long)((IJavaScriptExecutor)driver).ExecuteScript("return window.innerHeight"); //documentElement.scrollWidth");
 
             // We only care about taking multiple images together if it doesn't already fit
             if (totalWidth <= viewportWidth && totalHeight <= viewportHeight)
             {
-                var screenshot = Global.driver.TakeScreenshot();
+                var screenshot = driver.TakeScreenshot();
                 return ScreenshotToImage(screenshot);
             }
             // Split the screen in multiple Rectangles
@@ -191,10 +192,10 @@ namespace ShopeeAuto
                     var xDiff = rectangle.Right - previous.Right;
                     var yDiff = rectangle.Bottom - previous.Bottom;
                     // Scroll
-                    ((IJavaScriptExecutor)Global.driver).ExecuteScript(String.Format("window.scrollBy({0}, {1})", xDiff, yDiff));
+                    ((IJavaScriptExecutor)driver).ExecuteScript(String.Format("window.scrollBy({0}, {1})", xDiff, yDiff));
                 }
                 // Take Screenshot
-                var screenshot = Global.driver.TakeScreenshot();
+                var screenshot = driver.TakeScreenshot();
                 // Build an Image out of the Screenshot
                 var screenshotImage = ScreenshotToImage(screenshot);
                 // Calculate the source Rectangle

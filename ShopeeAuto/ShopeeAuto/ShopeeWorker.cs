@@ -16,6 +16,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using Keys = OpenQA.Selenium.Keys;
 using System.Collections.ObjectModel;
+using OpenQA.Selenium.Chrome;
 
 namespace ShopeeAuto
 {
@@ -30,6 +31,17 @@ namespace ShopeeAuto
         private int maxRevenue = 50;
         private string username;
         private string password;
+        private ChromeDriver driver;
+        private OpenQA.Selenium.Support.UI.WebDriverWait wait;
+        private string myAccountId = "";
+
+        public ShopeeWorker(ChromeDriver driver, string myAccountId)
+        {
+            this.myAccountId = myAccountId;
+            wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(10));
+            this.driver = driver;
+        }
+
         public bool Login()
         {
             ApiResult result;
@@ -48,7 +60,6 @@ namespace ShopeeAuto
                 // username = client.Data.ShopeeUsername.ToString();
                 // password = client.Data.ShopeePassword.ToString();
                 // Global.myAccountId = client.Data.Id.ToString();
-                Global.myAccountId = "5e6cc1832a895c6611691942";
                 username = "dohaonhien1712";
                 password = "Dohaonhien1712";
             }
@@ -61,7 +72,7 @@ namespace ShopeeAuto
 
             bool needToLogin = false;
             Global.AddLog("Kiểm tra Shopee đã đăng nhập chưa");
-            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/account/signin");
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/account/signin");
 
 
             for (int i = 0; i < 3; i++)
@@ -69,11 +80,11 @@ namespace ShopeeAuto
                 Thread.Sleep(2000);
                 try
                 {
-                    string loggedInUser = Global.driver.FindElement(By.ClassName("user-info")).Text;
+                    string loggedInUser = driver.FindElement(By.ClassName("account-info")).Text;
                     if (loggedInUser == username)
                     {
                         Global.AddLog("Đăng nhập thành côngggg");
-                        shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+                        shopeeCookie = driver.Manage().Cookies.AllCookies;
                         foreach (var x in shopeeCookie)
                         {
                             if (x.Name == "SPC_CDS")
@@ -84,8 +95,9 @@ namespace ShopeeAuto
                         return true;
                     }
                 }
-                catch
+                catch (Exception e)
                 {
+                    Global.AddLog("Có lỗi khi đăng nhập " + e.Message);
                     continue;
                 }
             }
@@ -93,7 +105,7 @@ namespace ShopeeAuto
             // Chờ tối đa 10 xem có thấy form login hay không.
             try
             {
-                Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("form.signin-form")));
+                wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("form.signin-form")));
                 Global.AddLog("Chưa đăng nhập, đang đăng nhập");
                 needToLogin = true;
             }
@@ -101,7 +113,7 @@ namespace ShopeeAuto
             {
                 Global.AddLog("Đã đăng nhập");
                 // Lấy cookie trước khi return Login thành công
-                shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+                shopeeCookie = driver.Manage().Cookies.AllCookies;
                 return true;
             }
 
@@ -125,7 +137,7 @@ namespace ShopeeAuto
             // Nếu có form login thì lấy thông tin username và pass từ server
             if (needToLogin)
             {
-                IWebElement loginForm = Global.driver.FindElement(By.CssSelector("form.signin-form"));
+                IWebElement loginForm = driver.FindElement(By.CssSelector("form.signin-form"));
                 for (int i = 0; i < 30; i++)
                 {
                     loginForm.FindElements(By.TagName("input"))[0].SendKeys(Keys.Backspace); // Username
@@ -150,11 +162,11 @@ namespace ShopeeAuto
                     Thread.Sleep(2000);
                     try
                     {
-                        string loggedInUser = Global.driver.FindElement(By.ClassName("user-info")).Text;
+                        string loggedInUser = driver.FindElement(By.ClassName("account-info")).Text;
                         if (loggedInUser == username)
                         {
                             Global.AddLog("Đăng nhập thành côngggg");
-                            shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+                            shopeeCookie = driver.Manage().Cookies.AllCookies;
                             return true;
                         }
                     }
@@ -166,7 +178,7 @@ namespace ShopeeAuto
                 return false;
             }
             // Lấy cookie trước khi return Login thành công
-            shopeeCookie = Global.driver.Manage().Cookies.AllCookies;
+            shopeeCookie = driver.Manage().Cookies.AllCookies;
             return true;
         }
 
@@ -218,7 +230,7 @@ namespace ShopeeAuto
             return results;
         }
 
-        // Lấy thông tin sản phẩm taobao
+        // HÀM NÀY BỎ, GỌI THẲNG API TAOBAO RỒI. Lấy thông tin sản phẩm taobao
         public NSTaobaoProduct.TaobaoProduct GetTaobaoProductData(string taobaoId)
         {
             ApiResult apiResult;
@@ -401,7 +413,7 @@ namespace ShopeeAuto
                                 if (shopeeMd5 != "")
                                 {
                                     PrepareTaobaoData.uploadedImages[value.Image] = shopeeMd5;
-                                  
+
                                 }
                             }
                             // SKU proppath có dạng "20509:28314;1627207:28341" vì vậy ở đây mình ghép Pid và Vid vào thành 1627207:28341 cho dễ gọi
@@ -491,7 +503,7 @@ namespace ShopeeAuto
 
                 foreach (NSTaobaoProduct.Prop prop in taobaoProductInfo.Data.SkuBase.Props)
                 {
-                    string translated = Global.Translate(prop.Name).Replace("đề xuất","").Replace("Đề xuất","").Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("  ", " ");
+                    string translated = Global.Translate(prop.Name).Replace("đề xuất", "").Replace("Đề xuất", "").Replace("Đề nghị", "").Replace("đề nghị", "").Replace("khuyến nghị trong vòng", "").Replace("khuyến nghị trong khoảng", "").Replace("khuyến nghị", "").Replace("Khuyến nghị", "").Replace("  ", " ");
                     if (translated.Length > 14)
                     {
                         translated = translated.Substring(0, 14);
@@ -566,7 +578,7 @@ namespace ShopeeAuto
                             Thread.Sleep(1000);
                         }
                     } while (!calcSuccess);
-      
+
                     Global.AddLog("Giá bán ra cua SKU " + Sku.SkuId + " trước khi nhân tỉ lệ: " + model.Price.ToString() + ". Tỉ lệ nhân " + revenuePercent.ToString());
                     int originalModelPrice = int.Parse(model.Price);
                     // Giá bán ra cuối cùng bằng giá thật nhân với tỉ lệ, nhưng tối thiểu phải lãi minRevenueInMoney
@@ -606,11 +618,12 @@ namespace ShopeeAuto
                                     Global.AddLog("Variation " + variation.Name + " hiện đang có sẵn " + variation.Options.Count + " options. Bây giờ thêm là nó phải ở vị trí này -1 rồi +1");
                                     // Nếu đây là option mới thì thêm option và ảnh (nếu có)
                                     // Tuy nhiên Shopee ko cho tạo qúa 20 option vì vậy một số model sẽ bị bỏ qua bằng cờ canBeSkipped
-                                   
-                                    if(variation.Options.Count == 20) // Bằng 20 thì skip luôn nên ko bao giờ có SKU thứ 21
+
+                                    if (variation.Options.Count == 20) // Bằng 20 thì skip luôn nên ko bao giờ có SKU thứ 21
                                     {
                                         caneBeSkipped = true;
-                                    } else
+                                    }
+                                    else
                                     {
                                         variation.Options.Add(propParts[1]);
                                         Global.AddLog("Vị trí của option " + propParts[1] + " vừa đc thêm là " + variation.Options.IndexOf(propParts[1]));
@@ -619,18 +632,19 @@ namespace ShopeeAuto
                                             variation.Images.Add(PrepareTaobaoData.SKUImages[skuProp]);
                                         }
                                     }
-                                    
-                                } else
+
+                                }
+                                else
                                 {
                                     Global.AddLog("Vị trí của option " + propParts[1] + " (đã có sẵn) là " + variation.Options.IndexOf(propParts[1]));
                                 }
 
                                 // Tới đây NẾU KO BỊ SKIP do quá nhiều thì nghĩa là sẽ tìm đc option (vì 1 là tìm thấy sẵn, 2 là đc add ở trên)
-                                if(!caneBeSkipped)
+                                if (!caneBeSkipped)
                                 {
                                     model.TierIndex.Add(variation.Options.IndexOf(propParts[1]));
                                 }
-                                
+
 
                                 // Update variation cũ
                                 tier_variations[variationIndex] = variation;
@@ -1002,7 +1016,7 @@ namespace ShopeeAuto
 
         public string CopyTaobaoToShopee(string jobName, NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
         {
-            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
             Random random = new Random();
             NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":8,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
 
@@ -1218,7 +1232,7 @@ namespace ShopeeAuto
                 Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
                 Global.AddLog("===============================");
 
-                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+                driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
                 // Báo lên server
                 parameters = new Dictionary<string, string>
                             {
@@ -1259,7 +1273,7 @@ namespace ShopeeAuto
         //============================ XỬ LÝ ORDER =========================================== 
         public string ProcessNewCheckout()
         {
-            Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/sale/");
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/sale/");
 
             ApiResult apiResult;
             List<NSShopeeOrders.Order> orders = new List<NSShopeeOrders.Order>();
@@ -1328,12 +1342,12 @@ namespace ShopeeAuto
                         Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: " + order.MVD);
 
                         // Chụp ảnh hóa đơn
-                        Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
+                        driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
                         try
                         {
-                            Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
+                            wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
                             Thread.Sleep(1000);
-                            Bitmap bmpImage = Helper.ScreenshotWayBill();
+                            Bitmap bmpImage = Helper.ScreenshotWayBill(driver);
                             string savePath = @"C:\Users\Admin\Desktop\ma_van_don\" + order.OrderId + ".jpg";
                             bmpImage.Save(savePath);
                             Thread.Sleep(200);
@@ -1349,7 +1363,7 @@ namespace ShopeeAuto
                     }
                 }
                 ordersSendToServer.Add(order);
-                
+
                 /// HẾT TEST
                 /// 
 
@@ -1389,12 +1403,12 @@ namespace ShopeeAuto
                                                 Global.AddLog("OrderID: " + order.OrderId + ". Mã vận đơn: " + order.MVD);
 
                                                 // Chụp ảnh hóa đơn
-                                                Global.driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
+                                                driver.Navigate().GoToUrl("https://banhang.shopee.vn/api/v3/logistics/get_waybill_new/?order_ids=" + order.OrderId);
                                                 try
                                                 {
-                                                    Global.wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
+                                                    wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("body")));
                                                     Thread.Sleep(1000);
-                                                    Bitmap bmpImage = Helper.ScreenshotWayBill();
+                                                    Bitmap bmpImage = Helper.ScreenshotWayBill(driver);
                                                     string savePath = @"C:\Users\Admin\Desktop\ma_van_don\" + order.OrderId + ".jpg";
                                                     bmpImage.Save(savePath);
                                                     Thread.Sleep(200);
