@@ -605,7 +605,7 @@ namespace ShopeeAuto
         public int GetAttributeModelId(string catId)
         {
             ApiResult apiResult;
-            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/category/get_category_attributes?category_ids=" + catId, Method.GET, shopeeCookie, null, null, proxy);
+            apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v3/category/get_category_attributes/?SPC_CDS=" + SPC_CDS + "&SPC_CDS_VER=2&category_ids=" + catId + "&version=3.1.0", Method.GET, shopeeCookie, null, null, proxy);
             if (!apiResult.success)
             {
                 return 0;
@@ -677,12 +677,13 @@ namespace ShopeeAuto
             var client = new RestClient("https://banhang.shopee.vn/webchat/api/v1.1/mini/messages");
             var request = new RestRequest(Method.POST);
             request.AddHeader("cache-control", "no-cache");
-            string cookieString = "";
+            //string cookieString = "";
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
             {
-                cookieString += cookie.Name + "=" + cookie.Value + "; ";
+                //cookieString += cookie.Name + "=" + cookie.Value + "; ";
+                request.AddCookie(cookie.Name, cookie.Value);
             }
-            request.AddHeader("Cookie", cookieString);
+            //request.AddHeader("Cookie", cookieString);
             request.AddHeader("accept-language", "en-US,en;q=0.9");
             request.AddHeader("referer", "https://banhang.shopee.vn/");
             request.AddHeader("sec-fetch-mode", "cors");
@@ -1356,6 +1357,7 @@ namespace ShopeeAuto
             if (attribute_model_id == 0)
             {
                 Global.AddLog("ERROR:Lỗi khi lấy modelId");
+                MessageBox.Show("Loi roi");
                 return "error";
             }
 
@@ -1536,12 +1538,13 @@ namespace ShopeeAuto
             RestRequest request = new RestRequest(Method.POST);
             // Fake cookie
             request.AddHeader("content-type", "application/json;charset=UTF-8");
-            string cookieString = "";
+            //string cookieString = "";
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
             {
-                cookieString += cookie.Name + "=" + cookie.Value + "; ";
+                //cookieString += cookie.Name + "=" + cookie.Value + "; ";
+                request.AddCookie(cookie.Name, cookie.Value);
             }
-            request.AddHeader("Cookie", cookieString);
+            //request.AddHeader("Cookie", cookieString);
 
             // Chuẩn bị data để post
             List<NSShopeeCreateProduct.CreateProduct> postDataFinal = new List<NSShopeeCreateProduct.CreateProduct>

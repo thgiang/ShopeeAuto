@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 
 namespace ShopeeAuto
 {
@@ -146,7 +147,8 @@ namespace ShopeeAuto
             // Đi qua proxy nếu có
             if(proxy != "")
             {
-                client.Proxy = new WebProxy(proxy);
+                string[] proxyParts = proxy.Split(':');
+                client.Proxy = new WebProxy(proxyParts[0], int.Parse(proxyParts[1]));
             }
             
             // Headers
@@ -162,12 +164,13 @@ namespace ShopeeAuto
             // Fake cookie nếu có
             if(cookies != null)
             {
-                string cookieString = "";
+                //string cookieString = "";
                 foreach (OpenQA.Selenium.Cookie cookie in cookies)
                 {
-                    cookieString += cookie.Name + "="+cookie.Value + "; ";
+                    //cookieString += cookie.Name + "="+cookie.Value + ";";
+                    request.AddCookie(cookie.Name, cookie.Value);
                 }
-                request.AddHeader("Cookie", cookieString);
+                //request.AddHeader("Cookie", cookieString);
 
             }
             // Add Parameters nếu có

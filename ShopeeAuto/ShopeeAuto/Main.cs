@@ -123,7 +123,7 @@ namespace ShopeeAuto
                 Process process = new Process();
                 process.StartInfo.UseShellExecute = true;
                 process.StartInfo.FileName = "chrome";
-                process.StartInfo.Arguments = "https://salehunter.net/my-ip  --load-extension=\"C:\\Users\\Admin\\Desktop\\no_cookies\" --disable-gpu --new-window --remote-debugging-port=" + remote_port + " --user-data-dir=\"E:\\ShopeeAutoProfile\" --proxy-server=\""+proxy+"\" --disable-infobars --disable-notifications --window-size=1366,768"; //--window-position=0,0 --window-size=1200,800 --disable-images  
+                process.StartInfo.Arguments = "https://salehunter.net/my-ip  --load-extension=\"C:\\Users\\Admin\\Desktop\\no_cookies\" --disable-gpu --new-window --remote-debugging-port=" + remote_port + " --user-data-dir=\"C:\\Profile\" --proxy-server=\""+proxy+"\" --disable-infobars --disable-notifications --window-size=1366,768"; //--window-position=0,0 --window-size=1200,800 --disable-images  
                 process.Start();
 
                 Thread.Sleep(1000);
@@ -269,7 +269,7 @@ namespace ShopeeAuto
 
         public void threadAcc1(string myAccountId)
         {
-            string proxy = "192.168.1.54:8888";
+            string proxy = "192.168.0.102:8888";
             // Khởi tạo Driver
             ChromeDriver driver = null;
             do {
