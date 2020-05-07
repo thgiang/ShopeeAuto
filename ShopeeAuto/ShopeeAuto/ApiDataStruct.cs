@@ -4,6 +4,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+namespace ShopeeAuto
+{
+    // Class danh sách job
+    class QueueElement
+    {
+        public string jobName;
+        public string jobStatus = "waiting";
+        public dynamic jobData;
+    }
+}
 
 namespace NSTaobaoProduct
 {

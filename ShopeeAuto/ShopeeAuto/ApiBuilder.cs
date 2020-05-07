@@ -135,24 +135,39 @@ namespace ShopeeAuto
             // Return result
             return result;
         }
-       
-        public ApiResult RequestOthers(string url, RestSharp.Method method, dynamic cookies = null, Dictionary<string, dynamic> parameters = null)
+
+        public ApiResult RequestOthers(string url, RestSharp.Method method, dynamic cookies = null, Dictionary<string, dynamic> parameters = null, dynamic headers = null, string proxy = "")
         {
             ApiResult result = new ApiResult();
 
             var client = new RestClient(url);
             var request = new RestRequest(method);
 
-            request.AddHeader("Authorization", Global.authToken);
+            // Đi qua proxy nếu có
+            if(proxy != "")
+            {
+                client.Proxy = new WebProxy(proxy);
+            }
+            
+            // Headers
             request.AddHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36");
+            if(headers != null)
+            {
+                foreach(string headerName in headers.Keys)
+                {
+                    request.AddHeader(headerName, headers[headerName]);
+                }
+            }
+
             // Fake cookie nếu có
             if(cookies != null)
             {
+                string cookieString = "";
                 foreach (OpenQA.Selenium.Cookie cookie in cookies)
                 {
-                    request.AddCookie(cookie.Name, cookie.Value.TrimEnd('"').TrimStart('"'));
-                    //request.AddCookie("SPC_CDS", "GICUNGDUOC");
+                    cookieString += cookie.Name + "="+cookie.Value + "; ";
                 }
+                request.AddHeader("Cookie", cookieString);
 
             }
             // Add Parameters nếu có

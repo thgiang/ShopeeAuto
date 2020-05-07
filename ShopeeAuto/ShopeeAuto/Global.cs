@@ -21,12 +21,6 @@ namespace ShopeeAuto
 
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
-        public static string myShopId = "";
-
-        public static string myAccountId = "";
-
-        public static string authToken = "";
-
         // Debug text area
         public static RichTextBox txtDebug;
 
