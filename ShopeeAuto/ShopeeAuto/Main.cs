@@ -269,7 +269,7 @@ namespace ShopeeAuto
 
         public void threadAcc1(string myAccountId)
         {
-            string proxy = "192.168.0.102:8888";
+            string proxy = "";
             // Khởi tạo Driver
             ChromeDriver driver = null;
             do {

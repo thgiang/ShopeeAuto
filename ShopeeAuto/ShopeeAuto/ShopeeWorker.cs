@@ -440,7 +440,7 @@ namespace ShopeeAuto
                 // username = client.Data.ShopeeUsername.ToString();
                 // password = client.Data.ShopeePassword.ToString();
                 //myAccountId = client.Data.Id.ToString();
-                username = "thgiang1710";
+                username = "noi_that_sang_tao";
                 password = "Giang17hoang!";
             }
             // Lỗi khi gọi lên server lấy username, pass
@@ -618,6 +618,13 @@ namespace ShopeeAuto
         // Đăng ảnh từ máy mình lên shopee, nhận lại id của ảnh shopee đã lưu
         public string PostImageToShopee(string path)
         {
+            // Kiểm tra thư mục frame, nếu có frame thì lồng thêm frame vào ảnh
+            string framePath = Application.StartupPath + "/frames/" + username + ".png";
+            if (File.Exists(framePath))
+            {
+                Helper.AddFrameToImage(framePath, path);
+            }
+            
             ApiResult apiResult;
             Dictionary<string, dynamic> parameters = new Dictionary<string, dynamic>
             {
@@ -1678,7 +1685,7 @@ namespace ShopeeAuto
             foreach (NSShopeeOrders.Order order in orders)
             {
                 order.Market = "SHOPEE";
-                order.AccountId =myAccountId;
+                order.AccountId = myAccountId;
 
                 // TESTTTTT Đoạn này để test, lấy lại hóa đơn vận đơn cũ.
                 ApiResult apiResulttest;

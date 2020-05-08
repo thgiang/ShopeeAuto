@@ -4,6 +4,8 @@ using OpenQA.Selenium.Support.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -228,6 +230,46 @@ namespace ShopeeAuto
                 s = char.ToLower(s[0]) + s.Substring(1);
             }
             return s;
+        }
+
+        public static string AddFrameToImage(string framePath, string photoPath)
+        {
+            Image frame = Image.FromFile(framePath);
+            Image photo = Image.FromFile(photoPath);
+            using (frame)
+            {
+                var width = photo.Width; //Set the final image width. Usually it'll be photo.width
+                var height = photo.Height; //The same with height
+                using (var bitmap = new Bitmap(width, height))
+                {
+                    using (var canvas = Graphics.FromImage(bitmap))
+                    {
+                        canvas.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        canvas.DrawImage(photo,
+                            new Rectangle(0,
+                                0,
+                                width,
+                                height),
+                            new Rectangle(0,
+                                0,
+                                photo.Width,
+                                photo.Height),
+                            GraphicsUnit.Pixel);
+                        canvas.DrawImage(frame, new Rectangle(0,
+                            0,
+                            width,
+                            height), new Rectangle(0,
+                            0,
+                            frame.Width,
+                            frame.Height), GraphicsUnit.Pixel);
+
+                        canvas.Save();
+                    }
+                    string randomPath = Path.GetTempFileName();
+                    bitmap.Save(randomPath, ImageFormat.Jpeg);
+                    return randomPath;
+                }
+            }
         }
     }
 }
