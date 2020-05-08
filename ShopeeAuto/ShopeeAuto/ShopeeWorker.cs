@@ -622,7 +622,7 @@ namespace ShopeeAuto
             string framePath = Application.StartupPath + "/frames/" + username + ".png";
             if (File.Exists(framePath))
             {
-                Helper.AddFrameToImage(framePath, path);
+                path = Helper.AddFrameToImage(framePath, path);
             }
             
             ApiResult apiResult;
@@ -1544,6 +1544,8 @@ namespace ShopeeAuto
             //client.Timeout = -1;
             RestRequest request = new RestRequest(Method.POST);
             // Fake cookie
+            request.AddHeader("origin", "https://banhang.shopee.vn");
+            request.AddHeader("authorization", authToken);
             request.AddHeader("content-type", "application/json;charset=UTF-8");
             //string cookieString = "";
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)

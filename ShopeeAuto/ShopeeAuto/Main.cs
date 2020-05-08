@@ -272,8 +272,11 @@ namespace ShopeeAuto
             string proxy = "";
             // Khởi tạo Driver
             ChromeDriver driver = null;
+            int i = 0;
             do {
+                Global.AddLog("Đang khởi tạo Driver lần " + (i+1).ToString());
                 driver = InitDriver(proxy);
+                Thread.Sleep(1000);
             } while (driver == null);
 
                 // Lấy Job và thực hiện
