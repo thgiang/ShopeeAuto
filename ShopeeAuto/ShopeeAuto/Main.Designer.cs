@@ -40,7 +40,6 @@
             this.txtDebug.Size = new System.Drawing.Size(543, 460);
             this.txtDebug.TabIndex = 0;
             this.txtDebug.Text = "";
-            this.txtDebug.TextChanged += new System.EventHandler(this.txtDebug_TextChanged);
             // 
             // Main
             // 

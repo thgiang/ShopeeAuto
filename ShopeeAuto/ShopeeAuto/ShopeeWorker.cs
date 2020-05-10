@@ -129,6 +129,7 @@ namespace ShopeeAuto
                             // Xử lý product chờ được list
                             if (job.jobName == "list" || job.jobName == "update" || job.jobName == "random")
                             {
+
                                 // TẠM ĐẶT NHƯ NÀY ĐỂ TEST THÔI, CHUYỂN SANG VIỆC KHÁC
                                 //job.jobStatus = "done";
                                 //continue;
@@ -140,6 +141,14 @@ namespace ShopeeAuto
                                 // Lấy data từ Taobao
                                 float minTaobaoPrice = 999999;
                                 NSTaobaoProduct.TaobaoProduct taobaoProductInfo = new NSTaobaoProduct.TaobaoProduct();
+
+                                // Nếu tactic  = 4 thì ko cần quét taobao
+                                if (job.jobData.Tactic.Value == 4)
+                                {
+                                    goto DangLuonKhongCanQuetTaobao;
+                                }
+
+
                                 if (jobData.Shops.First().IsPrimary)
                                 {
                                     Global.AddLog("Đang tìm thằng taobao nào bán rẻ nhất");
@@ -304,8 +313,9 @@ namespace ShopeeAuto
 
                                 #endregion
 
-                                // Tactic = 0 nghia la tim tu taobao ve, tactic = 1 hoac 2 nghia la copy tu shopee
-                                if (jobData.Tactic.Value != 0)
+                                DangLuonKhongCanQuetTaobao:
+                                // Tactic = 0 nghia la tim tu taobao ve, bang 4 la copy tu shop khac tren shopee
+                                if (jobData.Tactic.Value == 1 || jobData.Tactic.Value == 4)
                                 {
                                     #region Lấy data từ Shopee
                                     Global.AddLog("Lấy data từ Shopee");
@@ -371,7 +381,15 @@ namespace ShopeeAuto
 
                                     if (taobaoProductInfo != null)
                                     {
-                                        CopyTaobaoToShopee(job.jobName, taobaoProductInfo, shopeeProductInfo, jobData);
+                                        if(jobData.Tactic.Value == 1)
+                                        {
+                                            CopyTaobaoToShopee(job.jobName, taobaoProductInfo, shopeeProductInfo, jobData);
+                                        }
+                                        else if (jobData.Tactic.Value == 4)
+                                        {
+                                            CopyShopeeToShopee(job.jobName, shopeeProductInfo, jobData);
+                                        }
+
                                     }
                                     else
                                     {
@@ -382,10 +400,9 @@ namespace ShopeeAuto
 
                                 }
                                 // Ngược lại thì copy thông tin từ Taobao rồi dịch
-                                else
+                                else if (jobData.Tactic.Value == 0)
                                 {
-                                    job.jobStatus = "done";
-                                    Global.AddLog("Tactic != 0 chưa đc xử lý, chuyển job mới");
+                                    Global.AddLog("Tactic = 0 chưa đc xử lý, chuyển job mới");
                                     // Gọi hàm Shopee.CopyTaobaoToShopee2 trong hàm này phải dịch content tiếng TQ trước khi post thay vì copy toàn bộ thông tin của đối thủ shopee như hàm trước.
                                 }
 
@@ -440,7 +457,7 @@ namespace ShopeeAuto
                 // username = client.Data.ShopeeUsername.ToString();
                 // password = client.Data.ShopeePassword.ToString();
                 //myAccountId = client.Data.Id.ToString();
-                username = "noi_that_sang_tao";
+                username = "bahoangdogiadung";
                 password = "Giang17hoang!";
             }
             // Lỗi khi gọi lên server lấy username, pass
@@ -494,6 +511,13 @@ namespace ShopeeAuto
                 Global.AddLog("Đã đăng nhập");
                 // Lấy cookie trước khi return Login thành công
                 shopeeCookie = driver.Manage().Cookies.AllCookies;
+                foreach (var x in shopeeCookie)
+                {
+                    if (x.Name == "SPC_CDS")
+                    {
+                        SPC_CDS = x.Value;
+                    }
+                }
                 return true;
             }
 
@@ -547,6 +571,13 @@ namespace ShopeeAuto
                         {
                             Global.AddLog("Đăng nhập thành côngggg");
                             shopeeCookie = driver.Manage().Cookies.AllCookies;
+                            foreach (var x in shopeeCookie)
+                            {
+                                if (x.Name == "SPC_CDS")
+                                {
+                                    SPC_CDS = x.Value;
+                                }
+                            }
                             return true;
                         }
                     }
@@ -559,6 +590,13 @@ namespace ShopeeAuto
             }
             // Lấy cookie trước khi return Login thành công
             shopeeCookie = driver.Manage().Cookies.AllCookies;
+            foreach (var x in shopeeCookie)
+            {
+                if (x.Name == "SPC_CDS")
+                {
+                    SPC_CDS = x.Value;
+                }
+            }
             return true;
         }
 
@@ -567,7 +605,7 @@ namespace ShopeeAuto
             // Kiểm tra lại lần nữa xem login thành công chưa và nhân thể set luôn Global.myShopId nếu bên trên chưa có
             if (myShopId == "")
             {
-                ApiResult apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v2/login/", Method.GET, shopeeCookie, null, null, proxy);
+                ApiResult apiResult = Global.api.RequestOthers("https://banhang.shopee.vn/api/v2/login/?SPC_CDS="+SPC_CDS+"&SPC_CDS_VER=2", Method.GET, shopeeCookie, null, null, proxy);
                 if (apiResult.success)
                 {
                     dynamic results = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
@@ -616,13 +654,13 @@ namespace ShopeeAuto
         }
 
         // Đăng ảnh từ máy mình lên shopee, nhận lại id của ảnh shopee đã lưu
-        public string PostImageToShopee(string path)
+        public string PostImageToShopee(string path, bool useFrame = false)
         {
             // Kiểm tra thư mục frame, nếu có frame thì lồng thêm frame vào ảnh
             string framePath = Application.StartupPath + "/frames/" + username + ".png";
-            if (File.Exists(framePath))
+            if (File.Exists(framePath) && useFrame)
             {
-                Helper.AddFrameToImage(framePath, path);
+                path = Helper.AddFrameToImage(framePath, path);
             }
             
             ApiResult apiResult;
@@ -734,6 +772,7 @@ namespace ShopeeAuto
                 {
                     foreach (NSTaobaoProduct.Value value in prop.Values)
                     {
+                        shopeeMd5 = "";
                         if (value.Name != null)
                         {
                             PrepareTaobaoData.skuNames[(prop.Pid + ":" + value.Vid)] = value.Name;
@@ -767,6 +806,7 @@ namespace ShopeeAuto
 
             foreach (string item_img in taobaoProductInfo.Data.Item.Images)
             {
+                shopeeMd5 = "";
                 // Lặp nốt mảng item_imgs thì up rồi cho vào List
                 if (!PrepareTaobaoData.uploadedImages.ContainsKey(item_img) && PrepareTaobaoData.generalImgs.Count < 8)
                 {
@@ -1355,22 +1395,20 @@ namespace ShopeeAuto
 
         public string CopyTaobaoToShopee(string jobName, NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
         {
-            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/new");
-            Thread.Sleep(500);
-            shopeeCookie = driver.Manage().Cookies.AllCookies;
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
+            Thread.Sleep(2000);
+            //shopeeCookie = driver.Manage().Cookies.AllCookies;
 
             // Model Id
             int attribute_model_id = GetAttributeModelId(shopeeProductInfo.Item.Categories.Last().Catid.ToString());
             if (attribute_model_id == 0)
             {
                 Global.AddLog("ERROR:Lỗi khi lấy modelId");
-                MessageBox.Show("Loi roi");
                 return "error";
             }
 
             Random random = new Random();
-            NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":true,\"days_to_ship\":8,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50018,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50016,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50011,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50012,\"sizeid\":0},{\"price\":\"8000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50015,\"sizeid\":0},{\"price\":\"9000.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"channelid\":50010,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
-
+            NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":false,\"days_to_ship\":2,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"size\":0,\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50022,\"sizeid\":0},{\"size\":0,\"price\":\"16474.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50011,\"sizeid\":0},{\"size\":0,\"price\":\"14591.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50018,\"sizeid\":0},{\"size\":0,\"price\":\"14300.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50023,\"sizeid\":0},{\"size\":0,\"price\":\"14025.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50010,\"sizeid\":0},{\"size\":0,\"price\":\"22500.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50012,\"sizeid\":0},{\"size\":0,\"price\":\"11880.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50016,\"sizeid\":0},{\"size\":0,\"price\":\"15125.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50015,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
 
             PrepareTaobaoData PrepareTaobaoData = PrepareTBData(taobaoProductInfo);
 
@@ -1613,6 +1651,252 @@ namespace ShopeeAuto
                 Global.AddLog("===============================");
                 // Báo lên server
                 parameters = new Dictionary<string, string>
+                            {
+                                { "route", "product/"+jobData.Id },
+                                { "source", "taobao" },
+                                { "account_id",myAccountId },
+                                { "message", results.data.result[0].message.ToString()},
+                                { "action", "error" }
+                            };
+                Global.api.RequestMyApi(parameters, Method.PUT);
+                return "error";
+            }
+
+        }
+        
+        public string CopyShopeeToShopee(string jobName, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
+        {
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/new");
+            Thread.Sleep(500);
+            shopeeCookie = driver.Manage().Cookies.AllCookies;
+
+            // Model Id
+            int attribute_model_id = GetAttributeModelId(shopeeProductInfo.Item.Categories.Last().Catid.ToString());
+            if (attribute_model_id == 0)
+            {
+                Global.AddLog("ERROR:Lỗi khi lấy modelId");
+                if(Global.DebugMode)
+                {
+                    MessageBox.Show("Lại lỗi lấy ModelID");
+                }
+                
+                return "error";
+            }
+
+            // Init thông tin sản phẩm
+            Random random = new Random();
+            NSShopeeCreateProduct.CreateProduct postData = JsonConvert.DeserializeObject<NSShopeeCreateProduct.CreateProduct>("{\"id\":0,\"name\":\"Boo loo ba la\",\"brand\":\"No brand\",\"images\":[\"809019b6b3727424bdde5bd677bedec9\",\"0bcd30a3c76c3fc56a5539b3db775650\"],\"description\":\"Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống Không được để trống \",\"model_list\":[{\"id\":0,\"name\":\"\",\"stock\":12,\"price\":\"123000\",\"sku\":\"XL_DEN_123\",\"tier_index\":[0]},{\"id\":0,\"name\":\"\",\"stock\":34,\"price\":\"345000\",\"sku\":\"S_TRANG_345\",\"tier_index\":[1]}],\"category_path\":[162,13206,13210],\"attribute_model\":{\"attribute_model_id\":15159,\"attributes\":[{\"attribute_id\":13054,\"prefill\":false,\"status\":0,\"value\":\"No brand\"},{\"attribute_id\":20074,\"prefill\":false,\"status\":0,\"value\":\"1 Tháng\"}]},\"category_recommend\":[],\"stock\":0,\"price\":\"123000\",\"price_before_discount\":\"\",\"parent_sku\":\"SKU chỗ này là cái gì vậy?\",\"wholesale_list\":[],\"installment_tenures\":{},\"weight\":\"200\",\"dimension\":{\"width\":10,\"height\":10,\"length\":20},\"pre_order\":false,\"days_to_ship\":2,\"condition\":1,\"size_chart\":\"\",\"tier_variation\":[{\"name\":\"Mẫu mã\",\"options\":[\"Size XL màu đen\",\"Size S màu trắng\"],\"images\":[\"02add0536f76d882cdb5b9a13effc546\",\"d853ecab31f9488d2a249b1fef6c1e6a\"]}],\"logistics_channels\":[{\"size\":0,\"price\":\"0.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50022,\"sizeid\":0},{\"size\":0,\"price\":\"16474.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50011,\"sizeid\":0},{\"size\":0,\"price\":\"14591.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50018,\"sizeid\":0},{\"size\":0,\"price\":\"14300.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50023,\"sizeid\":0},{\"size\":0,\"price\":\"14025.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50010,\"sizeid\":0},{\"size\":0,\"price\":\"22500.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50012,\"sizeid\":0},{\"size\":0,\"price\":\"11880.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50016,\"sizeid\":0},{\"size\":0,\"price\":\"15125.00\",\"cover_shipping_fee\":false,\"enabled\":true,\"item_flag\":\"0\",\"channelid\":50015,\"sizeid\":0}],\"unlisted\":false,\"add_on_deal\":[],\"ds_cat_rcmd_id\":\"0\"}"); ;
+
+            // Lấy thông tin cân nặng của đối thủ ở shopee
+            Global.AddLog("Lấy kích thước sản phẩm");
+            ApiResult apiResult = Global.api.RequestOthers("https://shopee.vn/api/v0/shop/" + shopeeProductInfo.Item.Shopid + "/item/" + shopeeProductInfo.Item.Itemid + "/shipping_info_to_address/?city=Huy", Method.GET);
+            if (!apiResult.success)
+            {
+                Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm");
+                return "error";
+            }
+            dynamic shopeeShippings = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+            if (shopeeShippings == null || shopeeShippings.error_code != null)
+            {
+                Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm.");
+                return "error";
+            }
+            int weight = 300, width = 15, height = 5, length = 15;
+            if (shopeeShippings.shipping_infos != null && shopeeShippings.shipping_infos[0].debug != null && shopeeShippings.shipping_infos[0].debug.total_weight != null)
+            {
+                // Chắc ko cái nào nặng hơn 1 cân đâu :D nặng hơn thì mình sửa bằng tay sau.
+                weight = Math.Max(Math.Min(1000, (int)(shopeeShippings.shipping_infos[0].debug.total_weight * 1000)), 200);
+                width = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].width.ToString()));
+                height = Math.Max(2, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].height.ToString()));
+                length = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].length.ToString()));
+            }
+
+            float outPrice = Math.Max(shopeeProductInfo.Item.PriceMax, shopeeProductInfo.Item.PriceBeforeDiscount) / 100000 + 10000; // Tăng so với đối thủ 10k
+            Global.AddLog("Quyết định bán ra giá chung chung là: " + outPrice.ToString());
+
+            List<int> categoryPath = new List<int>();
+            foreach (NSShopeeProduct.Category cat in shopeeProductInfo.Item.Categories)
+            {
+                categoryPath.Add(int.Parse(cat.Catid.ToString()));
+            }
+
+            // Model của sản phẩm
+            NSShopeeCreateProduct.AttributeModel attributeModel = new NSShopeeCreateProduct.AttributeModel();
+            attributeModel.AttributeModelId = attribute_model_id;
+            attributeModel.Attributes = new List<NSShopeeCreateProduct.Attribute>();
+            foreach(NSShopeeProduct.Attribute att in shopeeProductInfo.Item.Attributes)
+            {
+                NSShopeeCreateProduct.Attribute attnew = new NSShopeeCreateProduct.Attribute();
+                attnew.AttributeId = att.Id;
+                attnew.Prefill = false;
+                //attnew.Status = 0;
+                attnew.Value = att.Value;
+                attributeModel.Attributes.Add(attnew);
+            }
+
+            // Upload ảnh general iamges;
+            int countImages = 0;
+            List<string> generalImgs = new List<string>();
+            foreach(string generalImageLink in shopeeProductInfo.Item.Images)
+            {
+                string shopeeMd5 = "";
+                string downloadedImage = helper.DownloadImage("https://cf.shopee.vn/file/"+ generalImageLink);
+                if (downloadedImage != "CANNOT_DOWNLOAD_FILE")
+                {
+                    if(countImages == 0)
+                    {
+                        shopeeMd5 = PostImageToShopee(downloadedImage, true);
+                    } else
+                    {
+                        shopeeMd5 = PostImageToShopee(downloadedImage, false);
+                    }
+                }
+                if (shopeeMd5 != "")
+                {
+                    countImages++; 
+                    generalImgs.Add(shopeeMd5);
+                    shopeeMd5 = "";
+                }
+
+                if (countImages >= 8)
+                {
+                    break;
+                }
+            }
+           
+
+            // Đẩy data thật vào object       
+            if (jobName == "update")
+            {
+                // Nếu update thì cần cái này, còn nếu list mới thì ko cần
+                postData.Id = shopeeProductInfo.Item.Itemid;
+            }
+            outPrice = (int)((int)outPrice / 1000) * 1000;
+            postData.Images = generalImgs;
+            postData.CategoryPath = categoryPath;
+            postData.AttributeModel = attributeModel;
+            postData.Price = outPrice.ToString();
+            postData.PriceBeforeDiscount = (outPrice * 110 / 100).ToString();
+            postData.TierVariation = shopeeProductInfo.Item.TierVariations;
+
+            List<NSShopeeCreateProduct.ModelList> models = new List<NSShopeeCreateProduct.ModelList>();
+            long maxPrice = 0;
+            foreach (NSShopeeProduct.Model md in shopeeProductInfo.Item.Models)
+            {
+                NSShopeeCreateProduct.ModelList model = new NSShopeeCreateProduct.ModelList();
+                model.Id = 0;
+                model.Name = md.Name;
+                model.Stock = md.Stock;
+                model.Sku = (md.Modelid / 100000).ToString();
+                long price = md.Price / 100000 + 10000;
+                if (price > maxPrice)
+                {
+                    maxPrice = price;
+                } 
+                model.Price = price.ToString(); // Tăng lên 10k
+                model.TierIndex = md.Extinfo.TierIndex;
+                models.Add(model);
+            }
+            // Model rẻ nhất phải lớn hơn hoặc bằng bằng 1/3 model đắt nhất
+            for (int modelCount = 0; modelCount < models.Count; modelCount++)
+            {
+                if(long.Parse(models[modelCount].Price) < maxPrice / 3)
+                {
+                    models[modelCount].Price = (maxPrice / 3).ToString();
+                }
+            }
+
+
+            postData.ModelList = models;
+            //postData.ds_cat_rcmd_id                   = random.Next(11111111, 91111111).ToString() + random.Next(11111111, 91111111).ToString(); // Chưa biết cái này là cái gì
+            postData.ParentSku = random.Next(1111111, 9111111).ToString(); // Chưa biết cái này là cái gì
+            postData.Weight = weight.ToString();
+            postData.Dimension = new NSShopeeCreateProduct.Dimension();
+            postData.Dimension.Width = width;
+            postData.Dimension.Height = height;
+            postData.Dimension.Length = length;
+            postData.Description = shopeeProductInfo.Item.Description.Replace("0886.212.263", "").Replace(" –", "").Replace("[ Nhập Mã ONGHUYGUY Giảm 5% ] ", "").Replace("[ Hàng Chuẩn ]", "💜🍌").Replace("[ ", "[").Replace(" ]", "").Replace("0975.813.925", "0813.053.428");
+            postData.Name = shopeeProductInfo.Item.Name.Replace("0886.212.263", "").Replace(" –", "").Replace("[ Nhập Mã ONGHUYGUY Giảm 5% ] ", "").Replace("[ Hàng Chuẩn ]", "💜🍌").Replace("[ ", "[").Replace(" ]", "").Replace("0975.813.925", "0813.053.428");
+            postData.Stock = shopeeProductInfo.Item.NormalStock;
+            // POST lên shopee
+            Global.AddLog("Bắt đầu up sản phẩm");
+            RestClient client = new RestClient("https://banhang.shopee.vn/api/v3/product/create_product/?version=3.1.0&SPC_CDS=" + SPC_CDS + "&SPC_CDS_VER=2");
+            if (jobName == "update")
+            {
+                client = new RestClient("https://banhang.shopee.vn/api/v3/product/update_product/?version=3.1.0&SPC_CDS=" + SPC_CDS + "&SPC_CDS_VER=2");
+            }
+            //client.Timeout = -1;
+            RestRequest request = new RestRequest(Method.POST);
+            // Fake cookie
+            request.AddHeader("content-type", "application/json;charset=UTF-8");
+            //string cookieString = "";
+            foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
+            {
+                //cookieString += cookie.Name + "=" + cookie.Value + "; ";
+                request.AddCookie(cookie.Name, cookie.Value);
+            }
+            //request.AddHeader("Cookie", cookieString);
+
+            // Chuẩn bị data để post
+            List<NSShopeeCreateProduct.CreateProduct> postDataFinal = new List<NSShopeeCreateProduct.CreateProduct>
+            {
+                postData
+            };
+
+            DefaultContractResolver contractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            };
+            string postDataString = JsonConvert.SerializeObject(postDataFinal, new JsonSerializerSettings { ContractResolver = contractResolver });
+            if (Global.DebugMode)
+            {
+                Global.AddLog(postDataString);
+            }
+
+            request.AddParameter("application/json;charset=UTF-8", postDataString, ParameterType.RequestBody);
+            IRestResponse response = client.Execute(request);
+            // In kết quả trả về
+            dynamic results = JsonConvert.DeserializeObject<dynamic>(response.Content);
+            Global.AddLog("\n\n results: \n\n" + results + "\n\n");
+
+            if (results.message == "success")
+            {
+                string SuccessProductID = "";
+                if (jobName == "list")
+                {
+                    SuccessProductID = results.data.result[0].data.product_id.ToString();
+                }
+                if (jobName == "update")
+                {
+                    SuccessProductID = shopeeProductInfo.Item.Itemid.ToString();
+                }
+                Global.AddLog("Upload thành công, ID sản phẩm mới ở Shopee là:" + SuccessProductID);
+                Global.AddLog("===============================");
+
+                driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+                // Báo lên server
+                Dictionary<string, string> parameters = new Dictionary<string, string>
+                            {
+                                { "route", "product/"+jobData.Id },
+                                { "source", "taobao" },
+                                { "account_id",myAccountId },
+                                { "taobao_item_id", null },
+                                { "shopee_item_id",  SuccessProductID},
+                                { "shopee_shop_id",  myShopId},
+                                { "shopee_price",  postData.Price},
+                                { "shopee_model_list",  JsonConvert.SerializeObject(models)},
+                                { "taobao_skubase",  null},
+                                { "action", "done" }
+                            };
+                Global.api.RequestMyApi(parameters, Method.PUT);
+                return SuccessProductID;
+            }
+            else
+            {
+                Global.AddLog("Upload thất bại, nội dung trả về là:" + results.data.result[0].message.ToString());
+                Global.AddLog("===============================");
+                // Báo lên server
+                Dictionary<string, string> parameters = new Dictionary<string, string>
                             {
                                 { "route", "product/"+jobData.Id },
                                 { "source", "taobao" },

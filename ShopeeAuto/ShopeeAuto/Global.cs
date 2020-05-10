@@ -17,7 +17,7 @@ namespace ShopeeAuto
 {
     public static class Global
     {
-        public static bool DebugMode = true;
+        public static bool DebugMode = false;
 
         private static Dictionary<string, string> myDictionary = new Dictionary<string, string>();
 
@@ -101,7 +101,7 @@ namespace ShopeeAuto
 
         public static void AddLog(string text)
         {
-            txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text += "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n"; });
+            txtDebug.Invoke((MethodInvoker)delegate { txtDebug.Text = "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n" + txtDebug.Text; });
             try
             {
                 File.AppendAllText("log.txt", "[" + DateTime.Now.ToLongTimeString() + "] : " + text + "\n");

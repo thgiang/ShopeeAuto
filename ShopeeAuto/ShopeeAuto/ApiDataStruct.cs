@@ -1421,7 +1421,7 @@ namespace NSShopeeProduct
         public string ShopLocation { get; set; }
 
         [JsonProperty("tier_variations")]
-        public List<object> TierVariations { get; set; }
+        public List<NSShopeeCreateProduct.TierVariation> TierVariations { get; set; }
 
         [JsonProperty("makeups")]
         public object Makeups { get; set; }
@@ -1446,7 +1446,9 @@ namespace NSShopeeProduct
         public long Price { get; set; }
         public bool CurrentPromotionHasReserveStock { get; set; }
         public string Currency { get; set; }
+        [JsonProperty("normal_stock")]
         public long NormalStock { get; set; }
+        [JsonProperty("extinfo")]
         public Extinfo Extinfo { get; set; }
         public long PriceBeforeDiscount { get; set; }
         public long Modelid { get; set; }
@@ -1459,7 +1461,8 @@ namespace NSShopeeProduct
         public object HasShopeePromo { get; set; }
         public object GroupBuyInfo { get; set; }
         public object HolidayModeOldStock { get; set; }
-        public List<long> TierIndex { get; set; }
+        [JsonProperty("tier_index")]
+        public List<int> TierIndex { get; set; }
         public long SellerPromotionRefreshTime { get; set; }
     }
     public partial class Attribute
@@ -1628,8 +1631,8 @@ namespace NSShopeeCreateProduct {
         [JsonProperty("prefill")]
         public bool Prefill { get; set; }
 
-        [JsonProperty("status")]
-        public long Status { get; set; }
+       // [JsonProperty("status")]
+        //public long Status { get; set; }
 
         [JsonProperty("value")]
         public string Value { get; set; }

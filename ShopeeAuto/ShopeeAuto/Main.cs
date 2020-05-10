@@ -117,41 +117,47 @@ namespace ShopeeAuto
         {
             try
             {
-                Random rd = new Random();
-                string remote_port = rd.Next(9000, 9999).ToString();
-                // Mở chorme thật qua
-                Process process = new Process();
-                process.StartInfo.UseShellExecute = true;
-                process.StartInfo.FileName = "chrome";
-                process.StartInfo.Arguments = "https://salehunter.net/my-ip  --load-extension=\"C:\\Users\\Admin\\Desktop\\no_cookies\" --disable-gpu --new-window --remote-debugging-port=" + remote_port + " --user-data-dir=\"C:\\Profile\" --proxy-server=\""+proxy+"\" --disable-infobars --disable-notifications --window-size=1366,768"; //--window-position=0,0 --window-size=1200,800 --disable-images  
-                process.Start();
+                /*   
+                   Random rd = new Random();
+                   string remote_port = rd.Next(9000, 9999).ToString();
+                   // Mở chorme thật qua
+                   Process process = new Process();
+                   process.StartInfo.UseShellExecute = true;
+                   process.StartInfo.FileName = "chrome";
+                   process.StartInfo.Arguments = "https://salehunter.net/my-ip  --load-extension=\"C:\\Users\\Admin\\Desktop\\no_cookies\" --disable-gpu --new-window --remote-debugging-port=" + remote_port + " --user-data-dir=\"C:\\Profile\" --proxy-server=\""+proxy+"\" --disable-infobars --disable-notifications --window-size=1366,768"; //--window-position=0,0 --window-size=1200,800 --disable-images  
+                   process.Start();
 
-                Thread.Sleep(1000);
-                var options = new ChromeOptions { DebuggerAddress = "localhost:" + remote_port };         
-                ChromeDriverService sv = ChromeDriverService.CreateDefaultService();
-                sv.HideCommandPromptWindow = true;
-                var driver = new ChromeDriver(sv, options);
+                   Thread.Sleep(1000);
+                   var options = new ChromeOptions { DebuggerAddress = "localhost:" + remote_port };         
+                   ChromeDriverService sv = ChromeDriverService.CreateDefaultService();
+                   sv.HideCommandPromptWindow = true;
+                   var driver = new ChromeDriver(sv, options);
 
-                // Đóng tất cả tab đang mở
-                while (true)
-                {
-                    var tabs = driver.WindowHandles;
-                    if (tabs.Count > 1)
-                    {
-                        try
-                        {
-                            driver.SwitchTo().Window(tabs[1]);
-                            driver.Close();
-                            driver.SwitchTo().Window(tabs[0]);
-                        }
-                        catch { }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
+                   // Đóng tất cả tab đang mở
+                   while (true)
+                   {
+                       var tabs = driver.WindowHandles;
+                       if (tabs.Count > 1)
+                       {
+                           try
+                           {
+                               driver.SwitchTo().Window(tabs[1]);
+                               driver.Close();
+                               driver.SwitchTo().Window(tabs[0]);
+                           }
+                           catch { }
+                       }
+                       else
+                       {
+                           break;
+                       }
+                   }
 
+                   */
+                ChromeOptions options = new ChromeOptions();
+                options.AddArgument(@"load-extension=C:\Users\Admin\Desktop\no_cookies");
+
+                ChromeDriver driver = new ChromeDriver(options);
 
                 // Fake thông tin trình duyệt tránh detect auto
                 IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
@@ -169,6 +175,7 @@ namespace ShopeeAuto
         [Obsolete]
         public bool DownloadChromeDriver()
         {
+            return true;
             foreach (var process in Process.GetProcessesByName("chromedriver"))
             {
                 process.Kill();
@@ -227,11 +234,11 @@ namespace ShopeeAuto
         [Obsolete]
         private void Main_Load(object sender, EventArgs e)
         {
-            if (!DownloadChromeDriver())
-            {
-                MessageBox.Show("Không tải đc chromedriver.exe mới nhất, chương trình sẽ tắt");
-                return;
-            }
+            //if (!DownloadChromeDriver())
+           // {
+            //    MessageBox.Show("Không tải đc chromedriver.exe mới nhất, chương trình sẽ tắt");
+             //   return;
+            //}
             //string path = Helper.GenCaptcha("123456");
             //txtDebug.Text = path;
             //return;
@@ -262,12 +269,12 @@ namespace ShopeeAuto
 
             for(int i = 0; i < 1; i++)
             {
-                Thread threadAcc = new Thread(() => threadAcc1("5e6cc1832a895c6611691942"));
+                Thread threadAcc = new Thread(() => controlAccount("5eb700bb2a7fbb533558d962"));
                 threadAcc.Start();
             }
         }
 
-        public void threadAcc1(string myAccountId)
+        public void controlAccount(string myAccountId)
         {
             string proxy = "";
             // Khởi tạo Driver
@@ -290,13 +297,6 @@ namespace ShopeeAuto
             //Global.driver.Quit();
             //Environment.Exit(Environment.ExitCode);
             //Application.Exit();
-        }
-
-        private void txtDebug_TextChanged(object sender, EventArgs e)
-        {
-            txtDebug.SelectionStart = txtDebug.Text.Length;
-            // scroll it automatically
-            txtDebug.ScrollToCaret();
         }
     }
 }
