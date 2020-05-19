@@ -1666,6 +1666,11 @@ namespace ShopeeAuto
         
         public string CopyShopeeToShopee(string jobName, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
         {
+            if(jobData.PriceAdjustmentPercent == 0)
+            {
+                jobData.PriceAdjustmentPercent = 100;
+            }
+
             driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/new");
             Thread.Sleep(500);
             shopeeCookie = driver.Manage().Cookies.AllCookies;
@@ -1776,7 +1781,7 @@ namespace ShopeeAuto
             postData.CategoryPath = categoryPath;
             postData.AttributeModel = attributeModel;
             postData.Price = outPrice.ToString();
-            postData.PriceBeforeDiscount = (outPrice * 110 / 100).ToString();
+            postData.PriceBeforeDiscount = (outPrice * jobData.PriceAdjustmentPercent / 100).ToString();
             postData.TierVariation = shopeeProductInfo.Item.TierVariations;
 
             List<NSShopeeCreateProduct.ModelList> models = new List<NSShopeeCreateProduct.ModelList>();
@@ -1788,7 +1793,7 @@ namespace ShopeeAuto
                 model.Name = md.Name;
                 model.Stock = md.Stock;
                 model.Sku = (md.Modelid / 100000).ToString();
-                long price = md.Price / 100000 + 10000;
+                long price = Math.Max(md.Price, md.PriceBeforeDiscount * jobData.PriceAdjustmentPercent / 100) / 100000;
                 if (price > maxPrice)
                 {
                     maxPrice = price;
@@ -1874,11 +1879,12 @@ namespace ShopeeAuto
                 Global.AddLog("===============================");
 
                 driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/list/all");
+
                 // Báo lên server
                 Dictionary<string, string> parameters = new Dictionary<string, string>
                             {
                                 { "route", "product/"+jobData.Id },
-                                { "source", "taobao" },
+                                { "source", "shopee" },
                                 { "account_id",myAccountId },
                                 { "taobao_item_id", null },
                                 { "shopee_item_id",  SuccessProductID},
@@ -1899,8 +1905,8 @@ namespace ShopeeAuto
                 Dictionary<string, string> parameters = new Dictionary<string, string>
                             {
                                 { "route", "product/"+jobData.Id },
-                                { "source", "taobao" },
-                                { "account_id",myAccountId },
+                                { "source", "shopee" },
+                                { "account_id", myAccountId },
                                 { "message", results.data.result[0].message.ToString()},
                                 { "action", "error" }
                             };

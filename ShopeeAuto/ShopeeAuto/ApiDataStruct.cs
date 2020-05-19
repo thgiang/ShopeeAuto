@@ -452,6 +452,10 @@ namespace NSApiProducts
 
         [JsonProperty("selling_products")]
         public List<Uri> SellingProducts { get; set; }
+
+        [JsonProperty("price_adjustment_percent")]
+        public int PriceAdjustmentPercent { get; set; }
+       
     }
 
     public partial class ShopeeId
