@@ -275,22 +275,35 @@ namespace ShopeeAuto
                                 else
                                 {
                                     // Nếu ko phải primay thì cứ lấy thằng isTheBest
+                                    bool cannotReadIsTheBest = false;
                                     foreach (NSApiProducts.TaobaoId taobaoIdObj in jobData.TaobaoIds)
                                     {
                                         if (taobaoIdObj.IsTheBest)
                                         {
                                             ApiResult apiResult;
-                                            apiResult = Global.api.RequestOthers("https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%" + taobaoIdObj.ItemId.ToString() + "%22%7D", Method.GET);
+                                            string taobaoApiLink = "https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdetail/6.0/?appKey=12574478&t=1583495561716&api=mtop.taobao.detail.getdetail&ttid=2017%40htao_h5_1.0.0&data=%7B%22exParams%22%3A%22%7B%5C%22countryCode%5C%22%3A%5C%22CN%5C%22%7D%22%2C%22itemNumId%22%3A%22" + taobaoIdObj.ItemId.ToString() + "%22%7D";
+                                            apiResult = Global.api.RequestOthers(taobaoApiLink, Method.GET);
                                             if (apiResult.success)
                                             {
+                                                
                                                 NSTaobaoProduct.TaobaoProduct tbp = JsonConvert.DeserializeObject<NSTaobaoProduct.TaobaoProduct>(apiResult.content);
                                                 // JSON decode thêm 1 lần nữa vì nó là JSON bên trong của JSON cha
                                                 tbp.Data.Details = JsonConvert.DeserializeObject<NSTaobaoProductDetail.TaobaoProductDetails>(tbp.Data.ApiStack.First().Value);
+                                                if(tbp.Data.Details == null)
+                                                {
+                                                    continue;
+                                                }
+
                                                 // Tìm đc thằng rẻ hơn
-                                                if (float.Parse(tbp.Data.Details.Price.ExtraPrices.First().PriceText) < minTaobaoPrice)
+                                                string priceText = tbp.Data.Details.Price.Price.PriceText;
+                                                if (tbp.Data.Details.Price.ExtraPrices != null && tbp.Data.Details.Price.ExtraPrices.Count > 0)
+                                                {
+                                                    priceText = tbp.Data.Details.Price.ExtraPrices.First().PriceText;
+                                                }
+                                                if (float.Parse(priceText.Split('-').Last()) < minTaobaoPrice)
                                                 {
                                                     taobaoProductInfo = tbp;
-                                                    minTaobaoPrice = float.Parse(tbp.Data.Details.Price.ExtraPrices.First().PriceText);
+                                                    minTaobaoPrice = float.Parse(priceText.Split('-').Last());
                                                 }
                                             }
                                             else
@@ -304,9 +317,14 @@ namespace ShopeeAuto
                                                 };
                                                 Global.api.RequestMyApi(parameters, Method.PUT);
                                                 Global.AddLog("ERROR: Lỗi không lấy đc thông tin sản phẩm taobao. Chuyển sang job tiếp theo");
-                                                continue;
+                                                cannotReadIsTheBest = true;
                                             }
+                                            break;
                                         }
+                                    }
+                                    if(cannotReadIsTheBest)
+                                    {
+                                        break;
                                     }
                                 }
 
@@ -402,7 +420,16 @@ namespace ShopeeAuto
                                 // Ngược lại thì copy thông tin từ Taobao rồi dịch
                                 else if (jobData.Tactic.Value == 0)
                                 {
-                                    Global.AddLog("Tactic = 0 chưa đc xử lý, chuyển job mới");
+                                    if (taobaoProductInfo != null)
+                                    {
+                                        CopyTaobaoToShopee(job.jobName, taobaoProductInfo, null, jobData);
+                                    }
+                                    else
+                                    {
+                                        job.jobStatus = "done";
+                                        Global.AddLog("ERROR: Thật ra theo logic code của mình thì dòng này sẽ ko bao giờ đc gọi tới, bởi vì đi tới đây thì taobaoProductInfo đã khác null rồi");
+                                        continue;
+                                    }
                                     // Gọi hàm Shopee.CopyTaobaoToShopee2 trong hàm này phải dịch content tiếng TQ trước khi post thay vì copy toàn bộ thông tin của đối thủ shopee như hàm trước.
                                 }
 
@@ -1183,7 +1210,8 @@ namespace ShopeeAuto
             DesAndTitle destitle = new DesAndTitle();
 
             string categoryTitle = ShopeeCategory.GetCategoryName(ShopeeCategoryId);
-            destitle.Title = categoryTitle;
+            // destitle.Title = categoryTitle;
+            destitle.Title = "";
 
             // Độ dài tối đa 3000 kí tự
             //" + shopeeProductInfo.Item.Description.Substring(0, Math.Min(2000, shopeeProductInfo.Item.Description.Length)).Replace(",", ", ").Replace(".", ". ").Replace("  ", " ").Replace(" ,", ", ").Replace(".", ". ") + @"
@@ -1395,9 +1423,9 @@ namespace ShopeeAuto
 
         public string CopyTaobaoToShopee(string jobName, NSTaobaoProduct.TaobaoProduct taobaoProductInfo, NSShopeeProduct.ShopeeProduct shopeeProductInfo, NSApiProducts.NsApiProduct jobData)
         {
-            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/category");
-            Thread.Sleep(2000);
-            //shopeeCookie = driver.Manage().Cookies.AllCookies;
+            driver.Navigate().GoToUrl("https://banhang.shopee.vn/portal/product/new");
+            Thread.Sleep(500);
+            shopeeCookie = driver.Manage().Cookies.AllCookies;
 
             // Model Id
             int attribute_model_id = GetAttributeModelId(shopeeProductInfo.Item.Categories.Last().Catid.ToString());
@@ -1454,29 +1482,31 @@ namespace ShopeeAuto
             // Gọi lên API để tính cước vận chuyển để tính ra giá cuối cùng
 
             // Lấy thông tin cân nặng của đối thủ ở shopee
-            Global.AddLog("Lấy kích thước sản phẩm");
-            ApiResult apiResult = Global.api.RequestOthers("https://shopee.vn/api/v0/shop/" + shopeeProductInfo.Item.Shopid + "/item/" + shopeeProductInfo.Item.Itemid + "/shipping_info_to_address/?city=Huy", Method.GET);
-            if (!apiResult.success)
-            {
-                Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm");
-                return "error";
-            }
-            dynamic shopeeShippings = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
-            if (shopeeShippings == null || shopeeShippings.error_code != null)
-            {
-                Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm.");
-                return "error";
-            }
-            int weight = 300, width = 5, height = 2, length = 15;
-            if (shopeeShippings.shipping_infos != null && shopeeShippings.shipping_infos[0].debug != null && shopeeShippings.shipping_infos[0].debug.total_weight != null)
-            {
-                // Chắc ko cái nào nặng hơn 1 cân đâu :D nặng hơn thì mình sửa bằng tay sau.
-                weight = Math.Max(Math.Min(1000, (int)(shopeeShippings.shipping_infos[0].debug.total_weight * 1000)), 200);
-                width = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].width.ToString()));
-                height = Math.Max(2, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].height.ToString()));
-                length = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].length.ToString()));
-            }
+            int weight = 400, width = 15, height = 8, length = 15;
+            if(shopeeProductInfo != null) { 
+                Global.AddLog("Lấy kích thước sản phẩm");
+                apiResult = Global.api.RequestOthers("https://shopee.vn/api/v0/shop/" + shopeeProductInfo.Item.Shopid + "/item/" + shopeeProductInfo.Item.Itemid + "/shipping_info_to_address/?city=Huy", Method.GET);
+                if (!apiResult.success)
+                {
+                    Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm");
+                    return "error";
+                }
+                dynamic shopeeShippings = JsonConvert.DeserializeObject<dynamic>(apiResult.content);
+                if (shopeeShippings == null || shopeeShippings.error_code != null)
+                {
+                    Global.AddLog("STOP: Lỗi khi lấy thông tin kích thước sản phẩm.");
+                    return "error";
+                }
 
+                if (shopeeShippings.shipping_infos != null && shopeeShippings.shipping_infos[0].debug != null && shopeeShippings.shipping_infos[0].debug.total_weight != null)
+                {
+                    // Chắc ko cái nào nặng hơn 1 cân đâu :D nặng hơn thì mình sửa bằng tay sau.
+                    weight = Math.Max(Math.Min(1000, (int)(shopeeShippings.shipping_infos[0].debug.total_weight * 1000)), 200);
+                    width = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].width.ToString()));
+                    height = Math.Max(2, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].height.ToString()));
+                    length = Math.Max(5, int.Parse(shopeeShippings.shipping_infos[0].debug.sizes_data[0].length.ToString()));
+                }
+            }
 
             // Tính giá TQ bao gồm cả ship về VN
             Global.AddLog("Gọi lên API để tính giá TQ sau vận chuyển");
@@ -1499,32 +1529,7 @@ namespace ShopeeAuto
                 return "error";
             }
 
-
-            // Tính giá TB các SKU Shopee
-            Global.AddLog("Tính giá trung bình mỗi SKU Shopee");
-            string p; ;
-            p = shopeeProductInfo.Item.PriceMax.ToString();
-            int shopeePrice = int.Parse(p.Substring(0, p.Length - 5));
-            if (shopeeProductInfo.Item.Models.Count > 0)
-            {
-                shopeePrice = 0;
-                foreach (NSShopeeProduct.Model m in shopeeProductInfo.Item.Models)
-                {
-                    p = m.Price.ToString();
-                    shopeePrice += int.Parse(p.Substring(0, p.Length - 5));
-                }
-                shopeePrice /= shopeeProductInfo.Item.Models.Count;
-            }
-            Global.AddLog("Giá shopee cuối cùng là " + shopeePrice.ToString());
-            if (shopeePrice == 0)
-            {
-                Global.AddLog("STOP: ShopeePrice = 0");
-                return "error";
-            }
-
             // Giá bán ra
-            //float outPrice = Math.Max(taobaoPrice * (100 + minRevenue) / 100, (shopeePrice  * (100 - random.Next(1, 3)) / 100)); // Giá tối thiểu cần có lãi, random rẻ hơn đối thủ 1 đến 3%
-            // Công thức bên trên là bám theo giá đối thủ, nhưng mà nhiều lúc giá linh tinh quá. Giờ chỉ bám theo giá taobao thôi. Tối thiểu 50% và random trong khoảng min đến max
             Random rd = new Random();
             float outPrice = Math.Max(taobaoPrice + minRevenueInMoney, rd.Next((int)taobaoPrice * (100 + minRevenue) / 100, (int)taobaoPrice * (100 + maxRevenue) / 100));
             Global.AddLog("Quyết định bán ra giá chung chung là: " + outPrice.ToString());
@@ -1535,18 +1540,26 @@ namespace ShopeeAuto
 
             dynamic sku = BuildShopeeSKUBasedOnTaobao(taobaoProductInfo, PrepareTaobaoData, revenuePercent, weight);
             List<int> categoryPath = new List<int>();
+
+
+            // Ép vào category đèn
+            /*
             foreach (NSShopeeProduct.Category cat in shopeeProductInfo.Item.Categories)
             {
                 categoryPath.Add(int.Parse(cat.Catid.ToString()));
             }
+            */           
+            categoryPath.Clear();
+            categoryPath.Add(87);
+            categoryPath.Add(2811);
+            categoryPath.Add(13744);
 
-            
+
             NSShopeeCreateProduct.AttributeModel attributeModel = new NSShopeeCreateProduct.AttributeModel();
             attributeModel.AttributeModelId = attribute_model_id;
             attributeModel.Attributes = new List<NSShopeeCreateProduct.Attribute>();
 
             // Đẩy data thật vào object
-            //string name = Global.AntiDangStyle(shopeeProductInfo.Item.Name.ToString()).Replace("sẵn", "order").Replace("Sẵn", "Order").Replace("SẴN", "ORDER");            
             if (jobName == "update")
             {
                 // Nếu update thì cần cái này, còn nếu list mới thì ko cần
@@ -1582,6 +1595,8 @@ namespace ShopeeAuto
             //client.Timeout = -1;
             RestRequest request = new RestRequest(Method.POST);
             // Fake cookie
+            request.AddHeader("origin", "https://banhang.shopee.vn");
+            request.AddHeader("authorization", authToken);
             request.AddHeader("content-type", "application/json;charset=UTF-8");
             //string cookieString = "";
             foreach (OpenQA.Selenium.Cookie cookie in shopeeCookie)
@@ -1633,7 +1648,7 @@ namespace ShopeeAuto
                             {
                                 { "route", "product/"+jobData.Id },
                                 { "source", "taobao" },
-                                { "account_id",myAccountId },
+                                { "account_id", myAccountId },
                                 { "taobao_item_id", taobaoProductInfo.Data.Item.ItemId },
                                 { "shopee_item_id",  SuccessProductID},
                                 { "shopee_shop_id",  myShopId},
